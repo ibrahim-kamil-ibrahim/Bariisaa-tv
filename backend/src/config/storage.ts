@@ -1,0 +1,15 @@
+import { S3Client } from '@aws-sdk/client-s3';
+import { env } from './environment';
+
+export const s3Client = new S3Client({
+  region: env.S3_REGION,
+  endpoint: env.S3_ENDPOINT,
+  credentials: {
+    accessKeyId: env.S3_ACCESS_KEY_ID,
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  },
+  forcePathStyle: true,
+});
+
+export const S3_BUCKET = env.S3_BUCKET;
+export const S3_SIGNED_URL_EXPIRY = env.S3_SIGNED_URL_EXPIRY;

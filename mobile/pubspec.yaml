@@ -1,0 +1,87 @@
+name: naik_mobile
+description: Bariisaa Tv - Audio Book & E-Book Platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  flutter_bloc: ^8.1.6
+  bloc: ^8.1.4
+  equatable: ^2.0.7
+  dio: ^5.7.0
+  get_it: ^8.0.3
+  go_router: ^14.6.0
+
+  just_audio: ^0.9.42
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_windows_audio: ^1.0.9
+  audio_service: ^0.18.17
+  audio_session: ^0.1.25
+  video_player: ^2.9.2
+
+  flutter_secure_storage: ^9.2.4
+  path_provider: ^2.1.5
+
+  firebase_core: ^3.12.1
+
+  device_info_plus: ^11.4.0
+
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  image_picker: ^1.1.2
+  image_cropper: ^8.1.0
+
+  intl: ^0.20.2
+  timeago: ^3.7.0
+
+  pdfrx: ^2.4.8
+  syncfusion_flutter_pdfviewer: ^31.1.21
+  url_launcher: ^6.3.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/videos/
+
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto.woff2
+        - asset: assets/fonts/Roboto-Bold.woff2
+          weight: 700
+    - family: NotoColorEmoji
+      fonts:
+        - asset: assets/fonts/NotoColorEmoji.woff2
+    - family: NotoSansEthiopic
+      fonts:
+        - asset: assets/fonts/NotoSansEthiopic.ttf
+    - family: Baloo2
+      fonts:
+        - asset: assets/fonts/Baloo2.woff2
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito.woff2
+
+dependency_overrides:
+  # Vendored copy with a fix for the hot-restart crash:
+  # "Callback invoked after it has been deleted" (runtime_entry.cc 5143).
+  # Stale mpv handles from the previous isolate now get their wakeup callback
+  # cleared before the quit command. Remove when upstream ships the fix
+  # (media_kit > 1.2.6).
+  media_kit:
+    path: third_party/media_kit

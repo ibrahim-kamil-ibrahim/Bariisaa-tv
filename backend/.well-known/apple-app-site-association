@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAM_ID.com.bariisaa.tv",
+        "paths": ["/callback"]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": []
+  }
+}

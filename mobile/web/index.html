@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Audio Book & E-Book Platform">
+
+  <meta name="google-signin-client_id" content="446551709086-e6f8447regllmgv2ng0v6sb4it76do73.apps.googleusercontent.com">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="naik_mobile">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Bariisaa Tv</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preload" href="/assets/fonts/NotoColorEmoji.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/Nunito.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/NotoSansEthiopic.ttf" as="font" type="font/ttf" crossorigin>
+  <style>
+    @font-face { font-family: 'Noto Color Emoji'; src: url('/assets/fonts/NotoColorEmoji.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans JP'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans SC'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans TC'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans KR'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Thai'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Arabic'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Hebrew'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Bengali'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Devanagari'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Georgian'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Armenian'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Greek'; src: url('/assets/fonts/Nunito.woff2') format('woff2'); font-display: swap; }
+    @font-face { font-family: 'Noto Sans Ethiopic'; src: url('/assets/fonts/NotoSansEthiopic.ttf') format('truetype'); font-display: swap; }
+  </style>
+  <script>
+    // Preload Noto fonts before Flutter engine starts
+    (async function() {
+      var faces = [
+        new FontFace('Noto Color Emoji', 'url(/assets/fonts/NotoColorEmoji.woff2)'),
+        new FontFace('Noto Sans', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans JP', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans SC', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans TC', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans KR', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Thai', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Arabic', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Hebrew', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Bengali', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Devanagari', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Georgian', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Armenian', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Greek', 'url(/assets/fonts/Nunito.woff2)'),
+        new FontFace('Noto Sans Ethiopic', 'url(/assets/fonts/NotoSansEthiopic.ttf)'),
+      ];
+      window._notoFontsLoaded = Promise.allSettled(faces.map(function(f) {
+        return f.load().then(function(loaded) { document.fonts.add(loaded); });
+      }));
+    })();
+  </script>
+</head>
+<body>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js"></script>
+</body>
+</html>

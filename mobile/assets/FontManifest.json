@@ -1,0 +1,7 @@
+[
+  {"family": "Roboto", "fonts": [{"asset": "fonts/Roboto.woff2"}, {"asset": "fonts/Roboto-Bold.woff2", "weight": 700}]},
+  {"family": "Baloo2", "fonts": [{"asset": "fonts/Baloo2.woff2"}]},
+  {"family": "Nunito", "fonts": [{"asset": "fonts/Nunito.woff2"}]},
+  {"family": "NotoColorEmoji", "fonts": [{"asset": "fonts/NotoColorEmoji.woff2"}]},
+  {"family": "NotoSansEthiopic", "fonts": [{"asset": "fonts/NotoSansEthiopic.ttf"}]}
+]
