@@ -62,6 +62,19 @@ class CategoriesLoaded extends DiscoveryState {
     this.featuredContent = const [],
   });
 
+  /// True when at least one shelf has content. Used to detect a "loaded but
+  /// nothing to show" state (e.g. the backend was unreachable) so the screen
+  /// can render an empty state instead of a blank body, and retry on return.
+  bool get hasContent =>
+      categories.isNotEmpty ||
+      recommendations.isNotEmpty ||
+      exploreCategories.isNotEmpty ||
+      ebooks.isNotEmpty ||
+      audiobooks.isNotEmpty ||
+      music.isNotEmpty ||
+      stories.isNotEmpty ||
+      featuredContent.isNotEmpty;
+
   CategoriesLoaded copyWith({
     List<CategoryModel>? categories,
     List<BookModel>? books,

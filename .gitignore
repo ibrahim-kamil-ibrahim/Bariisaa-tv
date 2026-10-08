@@ -40,3 +40,7 @@ desktop.ini
 # ── Local backups / scratch ─────────────────────────────
 backend/prisma/migrations_archive_backup/
 *.tmp
+
+# ── Runtime upload artifacts (local smoke/dev data) ─────
+backend/uploads/story-covers/
+backend/uploads/videos/

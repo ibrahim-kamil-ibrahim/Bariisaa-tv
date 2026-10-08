@@ -35,7 +35,14 @@ async function resolveAccessUrl(key: string): Promise<{ url: string; expiresIn: 
  * calls `completeVideoUpload`. Video bytes never touch this server.
  */
 export async function requestVideoUploadUrl(
-  data: { fileName: string; contentType: string; fileSize: number; bookId?: string },
+  data: {
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    bookId?: string;
+    storyId?: string;
+    visibility?: 'PUBLIC' | 'PREMIUM';
+  },
   userId: string
 ) {
   if (!ALLOWED_VIDEO_TYPES.includes(data.contentType)) {
@@ -57,14 +64,19 @@ export async function requestVideoUploadUrl(
       size: data.fileSize,
       url: '',
       bookId: data.bookId || null,
+      storyId: data.storyId || null,
       storageProvider: 'R2',
       uploadStatus: 'PENDING',
-      visibility: 'PREMIUM',
+      // Defaults to PREMIUM (the historical behaviour); callers that know the
+      // owning content's tier pass PUBLIC/PREMIUM explicitly.
+      visibility: data.visibility || 'PREMIUM',
       createdBy: userId,
     },
   });
 
-  const objectKey = r2.generateVideoKey(data.bookId || 'unassigned', record.id, data.fileName, data.contentType);
+  // Object-key scope: the owning content id, so R2 keys stay organised.
+  const scope = data.storyId || data.bookId || 'unassigned';
+  const objectKey = r2.generateVideoKey(scope, record.id, data.fileName, data.contentType);
   const uploadUrl = await r2.createUploadUrl(objectKey, data.contentType);
 
   await prisma.mediaFile.update({
@@ -106,7 +118,11 @@ export async function completeVideoUpload(mediaId: string) {
  * URL. PREMIUM videos require an active subscription (or super_admin).
  * Video bytes stream directly from R2 — never proxied through this server.
  */
-export async function getVideoPlaybackUrl(mediaId: string, userId: string, roles: string[]) {
+export async function getVideoPlaybackUrl(
+  mediaId: string,
+  userId?: string,
+  roles: string[] = []
+) {
   const record = await getVideoOrThrow(mediaId);
   if (record.uploadStatus !== 'COMPLETED') throw new AppError('Video is not ready for playback', 409);
   if (!record.storageKey) throw new AppError('Video has no storage key', 400);
@@ -115,6 +131,9 @@ export async function getVideoPlaybackUrl(mediaId: string, userId: string, roles
   let thumbnailUrl: string | null = null;
 
   if (record.visibility === 'PREMIUM') {
+    // Premium playback needs an identified, entitled user. Anonymous callers
+    // get 401 (not 403) so clients know to prompt for login.
+    if (!userId) throw new AppError('Login required to watch this video', 401);
     const isAdmin = roles.includes('super_admin');
     if (!isAdmin && !(await checkSubscriptionActive(userId))) {
       throw new AppError('Premium subscription required to watch this video', 403);
@@ -122,11 +141,13 @@ export async function getVideoPlaybackUrl(mediaId: string, userId: string, roles
     access = { url: await r2.createDownloadUrl(record.storageKey), expiresIn: r2.R2_DOWNLOAD_URL_EXPIRY };
     if (record.thumbnailKey) thumbnailUrl = await r2.createDownloadUrl(record.thumbnailKey);
   } else {
+    // PUBLIC videos are intentionally watchable without a session, matching how
+    // free books/audio already behave.
     access = await resolveAccessUrl(record.storageKey);
     if (record.thumbnailKey) thumbnailUrl = (await resolveAccessUrl(record.thumbnailKey)).url;
   }
 
-  console.log(`[R2] video accessed mediaId=${mediaId} visibility=${record.visibility} by=${userId}`);
+  console.log(`[R2] video accessed mediaId=${mediaId} visibility=${record.visibility} by=${userId ?? 'anonymous'}`);
   return { url: access.url, expiresIn: access.expiresIn, thumbnailUrl, durationSeconds: record.durationSeconds };
 }
 
@@ -153,7 +174,11 @@ export async function requestThumbnailUploadUrl(
     throw new AppError(`Unsupported thumbnail type: ${data.contentType}`, 400);
   }
 
-  const thumbnailKey = r2.generateThumbnailKey(record.bookId || 'unassigned', record.id, data.fileName);
+  const thumbnailKey = r2.generateThumbnailKey(
+    record.storyId || record.bookId || 'unassigned',
+    record.id,
+    data.fileName
+  );
   const uploadUrl = await r2.createUploadUrl(thumbnailKey, data.contentType);
 
   await prisma.mediaFile.update({ where: { id: mediaId }, data: { thumbnailKey } });

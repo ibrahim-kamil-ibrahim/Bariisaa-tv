@@ -97,6 +97,50 @@ describe('VideoService', () => {
         )
       ).rejects.toThrow('maximum allowed size');
     });
+
+    it('scopes the object key to a story and honours the requested visibility', async () => {
+      mockPrisma.mediaFile.create.mockResolvedValue({ id: 'video-1' });
+      (r2.createUploadUrl as jest.Mock).mockResolvedValue('https://r2.example/upload');
+
+      await videoService.requestVideoUploadUrl(
+        {
+          fileName: 's.mp4',
+          contentType: 'video/mp4',
+          fileSize: 1000,
+          storyId: 'story-9',
+          visibility: 'PUBLIC',
+        },
+        'admin-1'
+      );
+
+      expect(r2.generateVideoKey).toHaveBeenCalledWith(
+        'story-9',
+        'video-1',
+        's.mp4',
+        'video/mp4'
+      );
+      expect(mockPrisma.mediaFile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ storyId: 'story-9', visibility: 'PUBLIC' }),
+        })
+      );
+    });
+
+    it('defaults visibility to PREMIUM when not specified', async () => {
+      mockPrisma.mediaFile.create.mockResolvedValue({ id: 'video-1' });
+      (r2.createUploadUrl as jest.Mock).mockResolvedValue('https://r2.example/upload');
+
+      await videoService.requestVideoUploadUrl(
+        { fileName: 'lesson.mp4', contentType: 'video/mp4', fileSize: 1000, bookId: 'book-1' },
+        'admin-1'
+      );
+
+      expect(mockPrisma.mediaFile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ visibility: 'PREMIUM', storyId: null }),
+        })
+      );
+    });
   });
 
   describe('completeVideoUpload', () => {
@@ -177,6 +221,25 @@ describe('VideoService', () => {
       await expect(videoService.getVideoPlaybackUrl('video-1', 'user-1', [])).rejects.toThrow(
         'not ready for playback'
       );
+    });
+
+    it('allows anonymous playback of PUBLIC videos', async () => {
+      mockPrisma.mediaFile.findUnique.mockResolvedValue(baseVideo({ visibility: 'PUBLIC' }));
+      (r2.createDownloadUrl as jest.Mock).mockResolvedValue('https://r2.example/signed');
+
+      const result = await videoService.getVideoPlaybackUrl('video-1', undefined, []);
+
+      expect(result.url).toBe('https://r2.example/signed');
+      expect(checkSubscriptionActive).not.toHaveBeenCalled();
+    });
+
+    it('requires login for anonymous playback of PREMIUM videos', async () => {
+      mockPrisma.mediaFile.findUnique.mockResolvedValue(baseVideo({ visibility: 'PREMIUM' }));
+
+      await expect(videoService.getVideoPlaybackUrl('video-1', undefined, [])).rejects.toThrow(
+        'Login required to watch this video'
+      );
+      expect(checkSubscriptionActive).not.toHaveBeenCalled();
     });
   });
 

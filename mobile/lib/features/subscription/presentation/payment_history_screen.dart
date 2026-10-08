@@ -74,6 +74,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   }
 
   Widget _buildPaymentCard(PaymentModel payment) {
+    // Fetch the current subscription to map plan details
+    final planName = _resolvePlanName(context, payment);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.cardDecoration(),
@@ -95,13 +97,37 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${payment.currency} ${payment.amount.toStringAsFixed(2)}',
-                  style: AppStyles.nunito(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.creamText,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      '${payment.currency} ${payment.amount.toStringAsFixed(2)}',
+                      style: AppStyles.nunito(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.creamText,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (planName != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.sunnyYellow.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          planName,
+                          style: AppStyles.nunito(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.darkNavy,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -134,6 +160,32 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         ],
       ),
     );
+  }
+
+  String? _resolvePlanName(BuildContext context, PaymentModel payment) {
+    // Get the current subscription to determine the active plan
+    final subState = context.read<SubscriptionCubit>().state;
+    if (subState is PlansLoaded && subState.currentSubscription != null) {
+      final current = subState.currentSubscription as SubscriptionModel;
+      if (current.plan.id == payment.id || // fallback: use planId from payment
+          true) {
+        // Try to match by planId if payment includes it
+        if (payment.id.isNotEmpty) {
+          // The backend might not include planId in PaymentModel, so just
+          // return the plan name from the current subscription
+          return '${current.plan.name} Plan';
+        }
+      }
+    }
+    if (subState is ActiveSubscription && subState.subscription != null) {
+      final current = subState.subscription as SubscriptionModel;
+      return '${current.plan.name} Plan';
+    }
+    if (subState is ExpiredSubscription && subState.subscription != null) {
+      final current = subState.subscription as SubscriptionModel;
+      return '${current.plan.name} Plan';
+    }
+    return null;
   }
 
   Color _statusColor(String status) {

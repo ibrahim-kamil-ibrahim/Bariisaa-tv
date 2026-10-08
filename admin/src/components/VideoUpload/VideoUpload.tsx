@@ -35,6 +35,18 @@ interface UploadTask {
 
 interface VideoUploadProps {
   onUploaded?: (video: { mediaId: string; name: string }) => void;
+  /**
+   * Locks the upload to a piece of content (scope field is hidden).
+   * When omitted, a manual "Book ID" field is shown.
+   */
+  scope?: { type: 'book' | 'story'; id: string };
+  /**
+   * Visibility recorded on the MediaFile. Defaults to PREMIUM (historical
+   * behaviour for manual uploads in the Media Library).
+   */
+  visibility?: 'PUBLIC' | 'PREMIUM';
+  /** Hides the manual "Book ID" field (for callers that own their own scope UI). */
+  hideScopeField?: boolean;
 }
 
 const formatSize = (bytes: number) => {
@@ -44,7 +56,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
-export default function VideoUpload({ onUploaded }: VideoUploadProps) {
+export default function VideoUpload({ onUploaded, scope, visibility, hideScopeField }: VideoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [tasks, setTasks] = useState<UploadTask[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -68,11 +80,17 @@ export default function VideoUpload({ onUploaded }: VideoUploadProps) {
   }, []);
 
   const requestUploadUrl = async (task: UploadTask) => {
+    const scopeField: { bookId?: string; storyId?: string } = {};
+    if (scope?.type === 'story') scopeField.storyId = scope.id;
+    else if (scope?.type === 'book') scopeField.bookId = scope.id;
+    else if (bookId.trim()) scopeField.bookId = bookId.trim();
+
     const { data } = await api.post('/media/videos/upload-url', {
       fileName: task.file.name,
       contentType: task.file.type || 'video/mp4',
       fileSize: task.file.size,
-      bookId: bookId.trim() || undefined,
+      ...scopeField,
+      ...(visibility ? { visibility } : {}),
     });
     return data.data as { mediaId: string; objectKey: string; uploadUrl: string; expiresIn: number };
   };
@@ -139,15 +157,17 @@ export default function VideoUpload({ onUploaded }: VideoUploadProps) {
 
   return (
     <Box>
-      <TextField
-        fullWidth
-        size="small"
-        label="Book ID (optional)"
-        value={bookId}
-        onChange={(e) => setBookId(e.target.value)}
-        sx={{ mb: 2 }}
-        helperText="Links the video to a book — used in the R2 object key structure."
-      />
+      {!scope && !hideScopeField && (
+        <TextField
+          fullWidth
+          size="small"
+          label="Book ID (optional)"
+          value={bookId}
+          onChange={(e) => setBookId(e.target.value)}
+          sx={{ mb: 2 }}
+          helperText="Links the video to a book — used in the R2 object key structure."
+        />
+      )}
 
       <Box
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}

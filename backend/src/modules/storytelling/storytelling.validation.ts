@@ -7,6 +7,8 @@ const storyBaseSchema = z.object({
   description: z.string().optional(),
   coverUrl: z.string().optional(),
   audioUrl: z.string().optional(),
+  // MediaFile id of an uploaded video (type='video'). Null/'' clears the link.
+  videoId: z.string().nullish(),
   category: z.string().max(100).optional(),
   status: storyStatus.optional(),
   isFeatured: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),

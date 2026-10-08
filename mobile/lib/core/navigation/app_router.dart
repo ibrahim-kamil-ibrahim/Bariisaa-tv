@@ -30,6 +30,7 @@ import '../../features/ebook_reader/presentation/ebook_reader_screen.dart';
 import '../../features/ebook_reader/presentation/ebook_reader_cubit.dart';
 import '../../features/ebook_reader/data/ebook_reader_repository.dart';
 import '../../features/storytelling/presentation/storytelling_screen.dart';
+import '../../features/storytelling/presentation/story_detail_screen.dart';
 import '../../features/music/presentation/music_screen.dart';
 import '../../features/music/presentation/music_player_screen.dart';
 import '../../features/music/presentation/music_player_cubit.dart';
@@ -70,6 +71,7 @@ class AppRoutes {
   static const String ebookReader = '/ebook-reader';
   static const String books = '/books';
   static const String storytelling = '/storytelling';
+  static const String storyDetail = '/storytelling/:id';
   static const String music = '/music';
   static const String musicPlayer = '/music-player';
   static const String myDoctor = '/my-doctor';
@@ -104,6 +106,18 @@ GoRouter createRouter() {
         path: AppRoutes.storytelling,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const StorytellingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.storyDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty)
+            return const Scaffold(
+              body: Center(child: Text('Story not found')),
+            );
+          return StoryDetailScreen(storyId: id);
+        },
       ),
       GoRoute(
         path: AppRoutes.music,

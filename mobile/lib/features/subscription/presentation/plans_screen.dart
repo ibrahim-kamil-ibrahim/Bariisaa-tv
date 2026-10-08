@@ -162,6 +162,8 @@ class _PlansScreenState extends State<PlansScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // ── Trial offer banner ────────────────────────────────
+                          _buildTrialBanner(),
                           if (state.currentSubscription != null)
                             _buildCurrentSubscription(state.currentSubscription!),
                           ...state.plans.map((plan) => _buildPlanCard(plan, state.currentSubscription)),
@@ -184,6 +186,78 @@ class _PlansScreenState extends State<PlansScreen> {
           }
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+
+  /// $0.99 premium trial banner for new subscribers.
+  Widget _buildTrialBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.deepNavy,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.gold.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [AppTheme.gold, Color(0xFFFFC93D)],
+              ),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.local_offer_rounded,
+                size: 26,
+                color: AppTheme.deepNavy,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New here? Try Premium free for 7 days',
+                  style: AppStyles.baloo2(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Get full access to all audiobooks, e-books and stories.',
+                  style: AppStyles.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.white.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '\$0.99',
+            style: AppStyles.baloo2(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.gold,
+            ),
+          ),
+        ],
       ),
     );
   }

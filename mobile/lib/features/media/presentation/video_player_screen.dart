@@ -267,13 +267,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
 
             // Top bar
-            AnimatedOpacity(
-              opacity: _showControls ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -326,13 +326,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
 
             // Bottom controls
-            AnimatedOpacity(
-              opacity: _showControls ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _showControls ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as mediaController from './media.controller';
 import * as videoController from './video.controller';
-import { authenticate } from '../../middleware/authenticate';
+import { authenticate, optionalAuth } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { auditLog } from '../../middleware/auditLog';
 import { validate } from '../../middleware/validate';
@@ -26,9 +26,11 @@ router.get('/files', authenticate, mediaController.listFiles);
 router.get('/stats', authenticate, mediaController.getStats);
 
 // Videos — Cloudflare R2 direct upload + secure playback
+// Playback is optionalAuth: PUBLIC videos are watchable anonymously (like free
+// books/audio), while PREMIUM access is enforced inside the service.
 router.post('/videos/upload-url', authenticate, authorize('media:create'), validate(videoUploadUrlSchema), auditLog('create', 'media-video'), videoController.requestVideoUploadUrl);
 router.post('/videos/:id/complete', authenticate, authorize('media:update'), auditLog('update', 'media-video'), videoController.completeVideoUpload);
-router.get('/videos/:id/play', authenticate, videoController.getVideoPlaybackUrl);
+router.get('/videos/:id/play', optionalAuth, videoController.getVideoPlaybackUrl);
 router.get('/videos/:id', authenticate, videoController.getVideo);
 router.delete('/videos/:id', authenticate, authorize('media:delete'), auditLog('delete', 'media-video'), videoController.deleteVideo);
 router.post('/videos/:id/thumbnail/upload-url', authenticate, authorize('media:update'), validate(thumbnailUploadUrlSchema), videoController.requestThumbnailUploadUrl);

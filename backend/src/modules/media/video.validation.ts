@@ -7,6 +7,8 @@ export const videoUploadUrlSchema = z.object({
   contentType: z.string().min(1).max(100),
   fileSize: z.number().int().positive().max(MAX_VIDEO_SIZE),
   bookId: z.string().optional(),
+  storyId: z.string().optional(),
+  visibility: z.enum(['PUBLIC', 'PREMIUM']).optional(),
 });
 
 export const thumbnailUploadUrlSchema = z.object({

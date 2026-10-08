@@ -742,6 +742,9 @@ model Story {
   description    String?     @db.Text
   coverUrl       String?
   audioUrl       String?
+  // Optional video (MediaFile.id, type='video') attached from the admin panel.
+  // Stored as a plain id — same convention as MediaFile.bookId.
+  videoId        String?
   category       String      @default("folk")
   status         StoryStatus @default(DRAFT)
   isFeatured     Boolean     @default(false)
@@ -1083,6 +1086,7 @@ model MediaFile {
 
   // ── Cloudflare R2 / video storage ──
   bookId           String? // optional link to a Book (used for object-key structure)
+  storyId          String? // optional link to a Story (used for object-key structure)
   storageProvider  String    @default("LOCAL") // LOCAL | R2
   storageKey       String? // R2 object key (null for LOCAL)
   thumbnailKey     String? // R2 thumbnail object key
@@ -1098,6 +1102,7 @@ model MediaFile {
   @@index([folderId, type])
   @@index([deletedAt])
   @@index([bookId])
+  @@index([storyId])
   @@index([uploadStatus])
   @@map("media_files")
 }

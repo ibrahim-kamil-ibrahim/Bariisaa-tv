@@ -155,19 +155,47 @@ describe('optionalAuth middleware', () => {
     expect(req.userId).toBeUndefined();
   });
 
-  it('sets userId from a valid token', () => {
+  it('sets userId, roles and permissions from a valid token', async () => {
     req.headers.authorization = `Bearer ${makeToken({ userId: 'user-9' })}`;
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-9',
+      status: 'ACTIVE',
+      roles: [
+        {
+          role: {
+            name: 'subscriber',
+            permissions: [{ permission: { name: 'content:view' } }],
+          },
+        },
+      ],
+    });
 
-    optionalAuth(req, {} as any, next);
+    await optionalAuth(req, {} as any, next);
 
     expect(req.userId).toBe('user-9');
+    expect(req.userRoles).toEqual(['subscriber']);
+    expect(req.userPermissions).toEqual(['content:view']);
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('continues silently for an invalid token', () => {
+  it('continues without a user when the account is not ACTIVE', async () => {
+    req.headers.authorization = `Bearer ${makeToken({ userId: 'user-9' })}`;
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-9',
+      status: 'SUSPENDED',
+      roles: [],
+    });
+
+    await optionalAuth(req, {} as any, next);
+
+    expect(req.userId).toBeUndefined();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues silently for an invalid token', async () => {
     req.headers.authorization = 'Bearer garbage-token';
 
-    optionalAuth(req, {} as any, next);
+    await optionalAuth(req, {} as any, next);
 
     expect(req.userId).toBeUndefined();
     expect(next).toHaveBeenCalledTimes(1);

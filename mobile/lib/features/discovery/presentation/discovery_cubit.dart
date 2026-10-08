@@ -40,17 +40,39 @@ class DiscoveryCubit extends Cubit<DiscoveryState> {
 
   void loadCategories() async {
     emit(DiscoveryLoading());
+    var failures = 0;
+
+    Future<T> guard<T>(Future<T> future, T fallback) async {
+      try {
+        return await future;
+      } catch (e) {
+        failures++;
+        if (kDebugMode) debugPrint('discovery load failed: $e');
+        return fallback;
+      }
+    }
+
     try {
       final results = await Future.wait<dynamic>([
-        _repository.getCategories().catchError((e) => <CategoryModel>[]),
-        _repository.getRecommendations(limit: 8).catchError((e) => <BookModel>[]),
-        _repository.getExploreCategories().catchError((e) => <CategoryModel>[]),
-        _repository.getMusicTracks(limit: 10).catchError((e) => <Map<String, dynamic>>[]),
-        _repository.getStories(limit: 10).catchError((e) => <Map<String, dynamic>>[]),
-        _repository.getFeaturedMusic(limit: 5).catchError((e) => <Map<String, dynamic>>[]),
+        guard(_repository.getCategories(), <CategoryModel>[]),
+        guard(_repository.getRecommendations(limit: 8), <BookModel>[]),
+        guard(_repository.getExploreCategories(), <CategoryModel>[]),
+        guard(_repository.getMusicTracks(limit: 10), <Map<String, dynamic>>[]),
+        guard(_repository.getStories(limit: 10), <Map<String, dynamic>>[]),
+        guard(_repository.getFeaturedMusic(limit: 5), <Map<String, dynamic>>[]),
       ]);
 
       if (isClosed) return;
+
+      if (failures >= results.length) {
+        emit(
+          const DiscoveryError(
+            'Unable to load the home screen. Check your internet connection and try again.',
+          ),
+        );
+        return;
+      }
+
       final categories = results[0] as List<CategoryModel>;
       final books = results[1] as List<BookModel>;
       final ebooks = books.where((b) => b.pdfFile != null).toList();

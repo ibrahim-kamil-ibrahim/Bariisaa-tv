@@ -25,7 +25,7 @@ export async function getVideoPlaybackUrl(req: AuthRequest, res: Response, next:
   try {
     const result = await videoService.getVideoPlaybackUrl(
       req.params.id as string,
-      req.userId!,
+      req.userId,
       req.userRoles || []
     );
     successResponse(res, result, 'Playback URL generated');

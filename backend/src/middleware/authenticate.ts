@@ -77,11 +77,29 @@ export async function optionalAuth(req: AuthRequest, _res: Response, next: NextF
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        // Roles/permissions are loaded so downstream handlers (e.g. video
+        // playback) can honour role checks without a second lookup.
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: { include: { permission: true } },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (user && user.status === 'ACTIVE') {
       req.userId = user.id;
+      req.userRoles = user.roles.map((ur) => ur.role.name);
+      req.userPermissions = user.roles.flatMap((ur) =>
+        ur.role.permissions.map((rp) => rp.permission.name)
+      );
     }
   } catch {
     // Token invalid — continue without auth

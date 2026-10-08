@@ -23,4 +23,11 @@ class StorytellingRepository {
       return [];
     }
   }
+
+  /// GET /storytelling/:id → a single story (includes `videoId` + `isLocked`).
+  /// Errors are surfaced to the caller so the detail screen can show a retry.
+  Future<Map<String, dynamic>> getStory(String storyId) async {
+    final response = await _apiClient.get('/storytelling/$storyId');
+    return Map<String, dynamic>.from(response.data['data'] as Map);
+  }
 }

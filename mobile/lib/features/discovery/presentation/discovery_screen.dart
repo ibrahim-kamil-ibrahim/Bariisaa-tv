@@ -57,7 +57,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     super.didChangeDependencies();
     if (_initialLoadDone) return;
     final cubit = context.read<DiscoveryCubit>();
-    if (cubit.state is DiscoveryInitial || cubit.state is DiscoveryError) {
+    final state = cubit.state;
+    if (state is DiscoveryInitial ||
+        state is DiscoveryError ||
+        (state is CategoriesLoaded && !state.hasContent)) {
       _initialLoadDone = true;
       cubit.loadCategories();
     }
@@ -339,6 +342,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           _exploreGrid(context, state.exploreCategories),
         ],
       ));
+    }
+
+    if (sections.isEmpty) {
+      return _emptyHomeState(() => context.read<DiscoveryCubit>().loadCategories());
     }
 
     return RefreshIndicator(
@@ -1526,6 +1533,72 @@ memCacheWidth: 300,
   // ═══════════════════════════════════════════════════════════════
   //  HELPERS
   // ═══════════════════════════════════════════════════════════════
+
+  Widget _emptyHomeState(VoidCallback onRefresh) {
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(),
+      color: AppTheme.sunnyYellow,
+      backgroundColor: AppTheme.white,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(32, 56, 32, 32),
+        children: [
+          const Center(child: Text('🌈', style: TextStyle(fontSize: 64))),
+          const SizedBox(height: 20),
+          Text(
+            'Nothing to show yet',
+            textAlign: TextAlign.center,
+            style: AppStyles.baloo2(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.darkNavy,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Books, music and stories will show up here once they are published.',
+            textAlign: TextAlign.center,
+            style: AppStyles.nunito(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.charcoal,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: GestureDetector(
+              onTap: onRefresh,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.sunnyYellow,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.sunnyYellow.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Try Again',
+                  style: AppStyles.nunito(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.deepNavy,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   String? _s(dynamic v) => v is String ? v : null;
 
