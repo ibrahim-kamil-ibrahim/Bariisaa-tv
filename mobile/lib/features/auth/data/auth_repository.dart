@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
@@ -18,11 +20,31 @@ class AuthRepository {
     try {
       final res = await _api.get('/users/profile');
       final data = res.data['data'];
-      if (data is Map<String, dynamic>) return UserModel.fromJson(data);
+      if (data is Map<String, dynamic>) {
+        await _storage.setCachedUser(jsonEncode(data));
+        return UserModel.fromJson(data);
+      }
       return null;
-    } on DioException {
-      await _storage.clearAuthData();
-      _api.clearCachedToken();
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        // Token rejected by the server after refresh attempts — session is
+        // genuinely dead.
+        await _storage.clearAuthData();
+        _api.clearCachedToken();
+        return null;
+      }
+      // Offline / timeout / 5xx: keep stored tokens and fall back to the
+      // profile cached at the last successful login/restore.
+      if (kDebugMode) {
+        debugPrint('[AuthRepository] restoreSession offline, using cache: $e');
+      }
+      final cached = await _storage.getCachedUser();
+      if (cached != null) {
+        try {
+          return UserModel.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        } catch (_) {}
+      }
       return null;
     }
   }
@@ -180,7 +202,9 @@ class AuthRepository {
     }
 
     if (kDebugMode) {
-      debugPrint('[AuthRepository] signupUsername: tokens stored, user received');
+      debugPrint(
+        '[AuthRepository] signupUsername: tokens stored, user received',
+      );
     }
 
     return UserModel.fromJson(userData);
@@ -239,10 +263,7 @@ class AuthRepository {
 
     final res = await _api.post(
       '/auth/login/username',
-      data: {
-        'username': username,
-        'password': password,
-      },
+      data: {'username': username, 'password': password},
     );
 
     if (kDebugMode) {
@@ -349,6 +370,11 @@ class AuthRepository {
     }
     if (futures.isNotEmpty) {
       await Future.wait(futures);
+    }
+
+    final user = data['user'];
+    if (user is Map<String, dynamic>) {
+      await _storage.setCachedUser(jsonEncode(user));
     }
   }
 }

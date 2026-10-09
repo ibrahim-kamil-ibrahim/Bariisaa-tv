@@ -35,6 +35,15 @@ class AuthLoginLoading extends AuthState {}
 
 class AuthLogoutLoading extends AuthState {}
 
+/// The refresh token was rejected by the server — the user must sign in
+/// again. Emitted by AuthCubit when ApiClient reports a dead session.
+class AuthSessionExpired extends AuthState {
+  final String message;
+  const AuthSessionExpired(this.message);
+  @override
+  List<Object?> get props => [message];
+}
+
 class AuthOtpSent extends AuthState {
   final String identifier;
   final bool isEmail;

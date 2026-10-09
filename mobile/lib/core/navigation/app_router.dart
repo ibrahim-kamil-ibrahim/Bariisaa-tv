@@ -6,6 +6,7 @@ import '../di/injection.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/signup_screen.dart';
 import '../../features/auth/presentation/auth_cubit.dart';
+import '../../features/auth/domain/auth_state.dart';
 import '../../features/discovery/presentation/discovery_screen.dart';
 import '../../features/discovery/presentation/book_detail_screen.dart';
 import '../../features/discovery/presentation/search_results_screen.dart';
@@ -92,6 +93,25 @@ GoRouter createRouter() {
   _cachedRouter = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
+    redirect: (context, state) {
+      final path = state.uri.path;
+      const protectedPaths = [
+        AppRoutes.editProfile,
+        AppRoutes.devices,
+        AppRoutes.conversations,
+        AppRoutes.chat,
+        AppRoutes.paymentHistory,
+      ];
+      final isProtected = protectedPaths.any(
+        (p) => path == p || path.startsWith('$p/'),
+      );
+      if (!isProtected) return null;
+      final authState = getIt<AuthCubit>().state;
+      if (authState is AuthGuest || authState is AuthSessionExpired) {
+        return AppRoutes.login;
+      }
+      return null;
+    },
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -113,9 +133,7 @@ GoRouter createRouter() {
         builder: (context, state) {
           final id = state.pathParameters['id'];
           if (id == null || id.isEmpty)
-            return const Scaffold(
-              body: Center(child: Text('Story not found')),
-            );
+            return const Scaffold(body: Center(child: Text('Story not found')));
           return StoryDetailScreen(storyId: id);
         },
       ),

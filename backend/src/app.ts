@@ -48,6 +48,7 @@ import liveMonitoringRoutes from './modules/live-monitoring/live-monitoring.rout
 import oauthRoutes from './modules/oauth/oauth.routes';
 import messagingRoutes from './modules/messaging/messaging.routes';
 import contentAccessRoutes from './modules/content-access/content-access.routes';
+import { swaggerUiServe, swaggerUiSetup, docsPath } from './docs/swagger';
 
 const app = express();
 
@@ -95,11 +96,19 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
-      connectSrc: ["'self'", 'http://localhost:*', 'http://127.0.0.1:*', 'http://localhost:5173'],
+      // 'unsafe-eval' and dev origins are production-only relaxations removed;
+      // 'unsafe-inline' stays for Swagger UI's inline init script at /api/v1/docs.
+      scriptSrc: env.NODE_ENV === 'production'
+        ? ["'self'", "'unsafe-inline'"]
+        : ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+      connectSrc: env.NODE_ENV === 'production'
+        ? ["'self'"]
+        : ["'self'", 'http://localhost:*', 'http://127.0.0.1:*', 'http://localhost:5173'],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      frameAncestors: ["'self'", 'http://localhost:5173'],
+      frameAncestors: env.NODE_ENV === 'production'
+        ? ["'none'"]
+        : ["'self'", 'http://localhost:5173'],
       upgradeInsecureRequests: [],
     },
   },
@@ -135,6 +144,9 @@ app.get('/health', (_req, res) => {
 app.get('/api/v1/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Interactive API documentation (OpenAPI 3 + Swagger UI)
+app.use(docsPath, swaggerUiServe, swaggerUiSetup);
 
 app.use(`${env.API_PREFIX}/auth`, authRoutes);
 app.use(`${env.API_PREFIX}/users`, userRoutes);

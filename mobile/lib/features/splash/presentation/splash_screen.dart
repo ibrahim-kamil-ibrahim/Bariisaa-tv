@@ -28,6 +28,7 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<Offset> _titleSlide;
 
   bool _navigated = false;
+  Timer? _navTimer;
 
   @override
   void initState() {
@@ -66,20 +67,19 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.30, 0.70, curve: Curves.easeOut),
       ),
     );
-    _titleSlide = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const Interval(0.30, 0.75, curve: Curves.easeOutCubic),
-      ),
-    );
+    _titleSlide = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _ctrl,
+            curve: const Interval(0.30, 0.75, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _ctrl.forward();
 
-    // ── Navigate after 10 seconds ──
-    Timer(const Duration(seconds: 10), () {
+    // Navigate once the entrance animation completes (branding still gets
+    // ~2.4s of screen time — no arbitrary 10s hold).
+    _navTimer = Timer(const Duration(milliseconds: 2400), () {
       if (!_navigated && mounted) {
         _navigated = true;
         context.go(AppRoutes.discovery);
@@ -89,6 +89,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _navTimer?.cancel();
     _ctrl.dispose();
     _floatCtrl.dispose();
     super.dispose();
@@ -96,78 +97,81 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(gradient: AppTheme.heroGradient()),
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_ctrl, _floatCtrl]),
-          builder: (context, _) {
-            // Subtle sine-wave float: ±5 px, driven by repeating controller
-            final floatY = math.sin(_floatCtrl.value * math.pi) * 5.0;
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(gradient: AppTheme.heroGradient()),
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_ctrl, _floatCtrl]),
+            builder: (context, _) {
+              // Subtle sine-wave float: ±5 px, driven by repeating controller
+              final floatY = math.sin(_floatCtrl.value * math.pi) * 5.0;
 
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ── Logo: scale + fade + float ──
-                  FadeTransition(
-                    opacity: _logoFade,
-                    child: Transform.translate(
-                      offset: Offset(0, floatY),
-                      child: ScaleTransition(
-                        scale: _logoScale,
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          width: 160,
-                          height: 160,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                          errorBuilder: (_, _, _) => const Text(
-                            'B',
-                            style: TextStyle(
-                              fontSize: 80,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.gold,
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ── Logo: scale + fade + float ──
+                    FadeTransition(
+                      opacity: _logoFade,
+                      child: Transform.translate(
+                        offset: Offset(0, floatY),
+                        child: ScaleTransition(
+                          scale: _logoScale,
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 160,
+                            height: 160,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, _, _) => const Text(
+                              'B',
+                              style: TextStyle(
+                                fontSize: 80,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.gold,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 28),
 
-                  // ── Title: slide-up + fade + gentle float ──
-                  FadeTransition(
-                    opacity: _titleFade,
-                    child: SlideTransition(
-                      position: _titleSlide,
-                      child: Transform.translate(
-                        offset: Offset(0, floatY * 0.4),
-                        child: Text(
-                          'Bariisaa Tv',
-                          style: AppStyles.baloo2(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    // ── Title: slide-up + fade + gentle float ──
+                    FadeTransition(
+                      opacity: _titleFade,
+                      child: SlideTransition(
+                        position: _titleSlide,
+                        child: Transform.translate(
+                          offset: Offset(0, floatY * 0.4),
+                          child: Text(
+                            'Bariisaa Tv',
+                            style: AppStyles.baloo2(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

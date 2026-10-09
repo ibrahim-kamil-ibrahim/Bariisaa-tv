@@ -13,7 +13,7 @@ const loginSchema = z.object({
 });
 
 interface LoginResponse {
-  user: { id: string; email: string; name: string };
+  user: { id: string; email: string; name: string; roles: string[] };
   accessToken: string;
   refreshToken: string;
 }
@@ -49,7 +49,7 @@ export function AuthLoginPage() {
       );
       window.location.href = authResult.authorization_url;
     } else {
-      navigate('/');
+      navigate(window.location.pathname.startsWith('/admin') ? '/admin' : '/');
     }
   };
 

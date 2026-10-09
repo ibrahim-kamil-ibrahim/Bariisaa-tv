@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { useAuthStore } from './store/authStore';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { ThemeProvider, CssBaseline, Box, Button, Card, Typography } from '@mui/material';
+import { useAuthStore, hasRole, ADMIN_ROLES, EDITOR_ROLES, MODERATOR_ROLES, PANEL_ROLES } from './store/authStore';
 import theme from './theme';
 import Layout from './components/Layout';
 import BooksPage from './pages/books/BooksPage';
@@ -27,18 +27,223 @@ import DashboardV2Page from './pages/dashboard-v2/DashboardV2Page';
 import CmsPage from './pages/cms/CmsPage';
 import InvoicesPage from './pages/invoices/InvoicesPage';
 import BackupsPage from './pages/backups/BackupsPage';
+import AdminsPage from './pages/admins/AdminsPage';
+import MediaManagerPage from './pages/media/MediaManagerPage';
 import NotFoundPage from './pages/notFound/NotFoundPage';
 
 import { AuthLayout } from './auth/components/AuthLayout';
 import { AuthLoginPage } from './auth/pages/LoginPage';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function NotAuthorizedScreen() {
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        px: 2,
+      }}
+    >
+      <Card elevation={0} sx={{ p: 4, textAlign: 'center', maxWidth: 440, width: '100%', borderRadius: 3 }}>
+        <Typography variant="h5" fontWeight={700} gutterBottom>
+          Not authorized
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          You are not authorized to access the admin panel
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+        >
+          Sign out
+        </Button>
+      </Card>
+    </Box>
+  );
+}
+
+function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (roles && !hasRole(user, roles)) return <NotAuthorizedScreen />;
   return <>{children}</>;
 }
 
 export const APP_NAME = 'Bariisaa Tv';
+
+const protectedChildren = (
+  <>
+    <Route index element={<DashboardV2Page />} />
+    <Route path="dashboard-v2" element={<DashboardV2Page />} />
+    <Route
+      path="cms"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <CmsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route path="invoices" element={<InvoicesPage />} />
+    <Route path="backups" element={<BackupsPage />} />
+    <Route
+      path="books"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <BooksPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="books/new"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <BookFormPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="books/:id"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <BookDetailPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="books/:id/edit"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <BookFormPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="users"
+      element={
+        <PrivateRoute roles={ADMIN_ROLES}>
+          <UsersPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="admins"
+      element={
+        <PrivateRoute roles={ADMIN_ROLES}>
+          <AdminsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="categories"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <CategoriesPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="authors"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <AuthorsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route path="subscriptions" element={<PlansPage />} />
+    <Route path="coupons" element={<CouponsPage />} />
+    <Route
+      path="reports"
+      element={
+        <PrivateRoute roles={MODERATOR_ROLES}>
+          <ReportsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route path="notifications" element={<NotificationsPage />} />
+    <Route path="payments" element={<PaymentsPage />} />
+    <Route
+      path="roles"
+      element={
+        <PrivateRoute roles={ADMIN_ROLES}>
+          <RolesPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="audit-logs"
+      element={
+        <PrivateRoute roles={ADMIN_ROLES}>
+          <AuditLogsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="settings"
+      element={
+        <PrivateRoute roles={ADMIN_ROLES}>
+          <SettingsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="storytelling"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <StorytellingPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="music"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <MusicPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="my-doctor"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <MyDoctorPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="my-captain"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <MyCaptainPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="habits"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <HabitsPage />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="media"
+      element={
+        <PrivateRoute roles={EDITOR_ROLES}>
+          <MediaManagerPage />
+        </PrivateRoute>
+      }
+    />
+  </>
+);
 
 export default function App() {
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -54,42 +259,29 @@ export default function App() {
         {/* Admin auth — only login */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<AuthLoginPage />} />
+          <Route path="/admin/login" element={<AuthLoginPage />} />
         </Route>
 
-        {/* Admin pages (MUI) — protected */}
+        {/* Admin pages (MUI) — protected (mounted at "/" and "/admin") */}
         <Route
           path="/"
           element={
-            <PrivateRoute>
+            <PrivateRoute roles={PANEL_ROLES}>
               <Layout />
             </PrivateRoute>
           }
         >
-          <Route index element={<DashboardV2Page />} />
-          <Route path="dashboard-v2" element={<DashboardV2Page />} />
-          <Route path="cms" element={<CmsPage />} />
-          <Route path="invoices" element={<InvoicesPage />} />
-          <Route path="backups" element={<BackupsPage />} />
-          <Route path="books" element={<BooksPage />} />
-          <Route path="books/new" element={<BookFormPage />} />
-          <Route path="books/:id" element={<BookDetailPage />} />
-          <Route path="books/:id/edit" element={<BookFormPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="categories" element={<CategoriesPage />} />
-          <Route path="authors" element={<AuthorsPage />} />
-          <Route path="subscriptions" element={<PlansPage />} />
-          <Route path="coupons" element={<CouponsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="payments" element={<PaymentsPage />} />
-          <Route path="roles" element={<RolesPage />} />
-          <Route path="audit-logs" element={<AuditLogsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="storytelling" element={<StorytellingPage />} />
-          <Route path="music" element={<MusicPage />} />
-          <Route path="my-doctor" element={<MyDoctorPage />} />
-          <Route path="my-captain" element={<MyCaptainPage />} />
-          <Route path="habits" element={<HabitsPage />} />
+          {protectedChildren}
+        </Route>
+        <Route
+          path="/admin"
+          element={
+            <PrivateRoute roles={PANEL_ROLES}>
+              <Layout />
+            </PrivateRoute>
+          }
+        >
+          {protectedChildren}
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

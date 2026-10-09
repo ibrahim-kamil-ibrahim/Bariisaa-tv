@@ -14,3 +14,8 @@
 
 # Keep annotation
 -keepattributes *Annotation*
+
+# Play Core classes referenced by Flutter deferred-components (not bundled)
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**

@@ -1,9 +1,21 @@
 import prisma from '../../config/database';
+import { env } from '../../config/environment';
 import { AppError } from '../../middleware/errorHandler';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+function buildPgDumpCommand(): { command: string; options: { env: NodeJS.ProcessEnv } } {
+  const url = new URL(env.DATABASE_URL);
+  const user = decodeURIComponent(url.username || 'postgres');
+  const password = decodeURIComponent(url.password || '');
+  const host = url.hostname || 'localhost';
+  const port = url.port || '5432';
+  const database = url.pathname.replace(/^\//, '') || 'postgres';
+  const command = `pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`;
+  return { command, options: { env: { ...process.env, PGPASSWORD: password } } };
+}
 
 export async function create(data: any, createdBy: string) {
   const backup = await prisma.backup.create({
@@ -13,7 +25,8 @@ export async function create(data: any, createdBy: string) {
   // Start backup in background
   setImmediate(async () => {
     try {
-      const result = await execAsync('pg_dump -h localhost -U postgres naik_db');
+      const { command, options } = buildPgDumpCommand();
+      const result = await execAsync(command, { ...options, maxBuffer: 1024 * 1024 * 512 });
       await prisma.backup.update({
         where: { id: backup.id },
         data: { status: 'COMPLETED', fileSize: Buffer.byteLength(result.stdout), completedAt: new Date() },

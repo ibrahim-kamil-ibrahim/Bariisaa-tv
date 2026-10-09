@@ -57,6 +57,7 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<AuthCubit>(
     () => AuthCubit(getIt<AuthRepository>()),
   );
+  getIt<ApiClient>().onSessionExpired = () => getIt<AuthCubit>().handleSessionExpired();
 
   getIt.registerLazySingleton<DiscoveryRepository>(
     () =>

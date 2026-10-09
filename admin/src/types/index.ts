@@ -5,6 +5,7 @@ export interface User {
   phone?: string;
   avatar?: string | null;
   role: 'user' | 'admin' | 'superadmin';
+  roles: string[];
   status: 'active' | 'suspended' | 'banned';
   isVerified: boolean;
   isOnboarded: boolean;

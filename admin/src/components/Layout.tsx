@@ -50,8 +50,10 @@ import {
   WifiOff,
 
   Database,
+  Image,
+  UserCog,
 } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, hasRole, ADMIN_ROLES, EDITOR_ROLES, MODERATOR_ROLES, type User } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { APP_NAME } from '../App';
 import { palette, typography } from '../theme';
@@ -62,25 +64,27 @@ const DRAWER_WIDTH_COLLAPSED = 76;
 
 type NavItem =
   | { type: 'section'; label: string; icon?: React.ElementType }
-  | { type: 'link'; label: string; path: string; icon: React.ElementType };
+  | { type: 'link'; label: string; path: string; icon: React.ElementType; roles?: string[] };
 
 const navSections: NavItem[] = [
   { type: 'link', label: 'Dashboard', path: '/', icon: LayoutDashboard },
 
 
   { type: 'section', label: 'Content' },
-  { type: 'link', label: 'Books', path: '/books', icon: Library },
-  { type: 'link', label: 'Categories', path: '/categories', icon: Grid3X3 },
-  { type: 'link', label: 'Authors', path: '/authors', icon: PenTool },
-  { type: 'link', label: 'Storytelling', path: '/storytelling', icon: Headphones },
-  { type: 'link', label: 'Music', path: '/music', icon: FileText },
-  { type: 'link', label: 'My Doctor', path: '/my-doctor', icon: ShieldCheck },
-  { type: 'link', label: 'My Captain', path: '/my-captain', icon: Bookmark },
-  { type: 'link', label: 'Habits', path: '/habits', icon: CheckCircle },
+  { type: 'link', label: 'Books', path: '/books', icon: Library, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Categories', path: '/categories', icon: Grid3X3, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Authors', path: '/authors', icon: PenTool, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Storytelling', path: '/storytelling', icon: Headphones, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Music', path: '/music', icon: FileText, roles: EDITOR_ROLES },
+  { type: 'link', label: 'My Doctor', path: '/my-doctor', icon: ShieldCheck, roles: EDITOR_ROLES },
+  { type: 'link', label: 'My Captain', path: '/my-captain', icon: Bookmark, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Habits', path: '/habits', icon: CheckCircle, roles: EDITOR_ROLES },
+  { type: 'link', label: 'Media', path: '/media', icon: Image, roles: EDITOR_ROLES },
 
   { type: 'section', label: 'Users' },
-  { type: 'link', label: 'All Users', path: '/users', icon: Users },
-  { type: 'link', label: 'Roles', path: '/roles', icon: ShieldCheck },
+  { type: 'link', label: 'All Users', path: '/users', icon: Users, roles: ADMIN_ROLES },
+  { type: 'link', label: 'Admins', path: '/admins', icon: UserCog, roles: ADMIN_ROLES },
+  { type: 'link', label: 'Roles', path: '/roles', icon: ShieldCheck, roles: ADMIN_ROLES },
 
   { type: 'section', label: 'Subscriptions & Payments' },
   { type: 'link', label: 'Plans', path: '/subscriptions', icon: Bookmark },
@@ -89,15 +93,37 @@ const navSections: NavItem[] = [
   { type: 'link', label: 'Invoices', path: '/invoices', icon: FileText },
 
   { type: 'section', label: 'Marketing' },
-  { type: 'link', label: 'Reports', path: '/reports', icon: BarChart3 },
+  { type: 'link', label: 'Reports', path: '/reports', icon: BarChart3, roles: MODERATOR_ROLES },
   { type: 'link', label: 'Notifications', path: '/notifications', icon: Send },
-  { type: 'link', label: 'CMS', path: '/cms', icon: BookOpen },
+  { type: 'link', label: 'CMS', path: '/cms', icon: BookOpen, roles: EDITOR_ROLES },
 
   { type: 'section', label: 'Administration' },
-  { type: 'link', label: 'Audit & Activity', path: '/audit-logs', icon: ScrollText },
+  { type: 'link', label: 'Audit & Activity', path: '/audit-logs', icon: ScrollText, roles: ADMIN_ROLES },
   { type: 'link', label: 'Backups', path: '/backups', icon: Database },
-  { type: 'link', label: 'Settings', path: '/settings', icon: Settings },
+  { type: 'link', label: 'Settings', path: '/settings', icon: Settings, roles: ADMIN_ROLES },
 ];
+
+function filterNav(items: NavItem[], user: User | null): NavItem[] {
+  const visible: NavItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.type === 'section') {
+      let hasVisibleLink = false;
+      for (let j = i + 1; j < items.length; j++) {
+        const link = items[j];
+        if (link.type !== 'link') break;
+        if (!link.roles || hasRole(user, link.roles)) {
+          hasVisibleLink = true;
+          break;
+        }
+      }
+      if (hasVisibleLink) visible.push(item);
+    } else if (!item.roles || hasRole(user, item.roles)) {
+      visible.push(item);
+    }
+  }
+  return visible;
+}
 
 function getInitials(name?: string) {
   if (!name) return 'A';
@@ -119,6 +145,10 @@ export default function Layout() {
   const { user, logout } = useAuthStore();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+
+  const isAdminBase = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
+  const withBase = (path: string) => (isAdminBase ? `/admin${path === '/' ? '' : path}` : path);
+  const visibleNav = filterNav(navSections, user);
 
   const [mounted, setMounted] = useState(false);
   const [backendOnline, setBackendOnline] = useState(true);
@@ -146,7 +176,7 @@ export default function Layout() {
   const handleLogout = () => {
     setAnchorEl(null);
     logout();
-    navigate('/login');
+    navigate(withBase('/login'));
   };
 
   const currentWidth = sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
@@ -200,7 +230,7 @@ export default function Layout() {
 
       {/* Nav */}
       <List sx={{ flex: 1, overflow: 'auto', px: 0 }}>
-        {navSections.map((item, index) => {
+        {visibleNav.map((item, index) => {
           if (item.type === 'section') {
             return sidebarCollapsed ? null : (
               <Typography
@@ -223,7 +253,11 @@ export default function Layout() {
             );
           }
 
-          const isActive = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path);
+          const target = withBase(item.path);
+          const isActive =
+            item.path === '/'
+              ? location.pathname === target || location.pathname === `${target}/`
+              : location.pathname.startsWith(target);
           const Icon = item.icon;
 
           return (
@@ -232,7 +266,7 @@ export default function Layout() {
                 <ListItemButton
                   selected={isActive}
                   onClick={() => {
-                    navigate(item.path);
+                    navigate(target);
                     if (isMobile) setMobileOpen(false);
                   }}
                   sx={{
@@ -380,7 +414,7 @@ export default function Layout() {
                     {user?.name || 'Admin'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-                    {user?.role || 'Super Admin'}
+                    {user?.roles?.length ? user.roles.join(', ') : user?.role || 'Super Admin'}
                   </Typography>
                 </Box>
                 <Avatar
@@ -410,11 +444,11 @@ export default function Layout() {
                   {user?.email}
                 </MenuItem>
                 <Divider sx={{ my: 0.5 }} />
-                <MenuItem onClick={() => { setAnchorEl(null); navigate('/subscriptions'); }} sx={{ gap: 1.5, py: 1.25 }}>
+                <MenuItem onClick={() => { setAnchorEl(null); navigate(withBase('/subscriptions')); }} sx={{ gap: 1.5, py: 1.25 }}>
                   <Bookmark size={18} color={palette.deepTeal} />
                   Plans
                 </MenuItem>
-                <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }} sx={{ gap: 1.5, py: 1.25 }}>
+                <MenuItem onClick={() => { setAnchorEl(null); navigate(withBase('/settings')); }} sx={{ gap: 1.5, py: 1.25 }}>
                   <Settings size={18} color={palette.deepTeal} />
                   Settings
                 </MenuItem>

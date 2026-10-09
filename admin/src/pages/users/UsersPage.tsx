@@ -27,6 +27,8 @@ import {
   Divider,
   Tabs,
   Tab,
+  Checkbox,
+  InputAdornment,
   Box as MuiBox,
 } from '@mui/material';
 import {
@@ -35,9 +37,12 @@ import {
   RefreshCw as RefreshIcon,
   Blocks as BlocksIcon,
   LockOpen as ResetIcon,
+  Search as SearchIcon,
+  UserCog as UserCogIcon,
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import FadeIn from '../../components/FadeIn';
+import AssignRolesDialog, { AssignRolesTarget } from '../../components/AssignRolesDialog';
 import api from '../../services/api';
 import { useNotificationStore } from '../../store/notificationStore';
 
@@ -46,10 +51,20 @@ interface User {
   name: string;
   email: string;
   status: string;
-  role: string;
+  role?: string;
+  roles?: { role: { id: string; name: string } }[];
   avatar?: string;
+  avatarUrl?: string | null;
   lastLogin?: string;
   createdAt: string;
+}
+
+const STATUS_TABS = ['', 'ACTIVE', 'SUSPENDED', 'BLOCKED'];
+const STATUS_TAB_LABELS = ['All Users', 'Active', 'Suspended', 'Blocked'];
+
+function roleNames(user: User): string[] {
+  if (user.roles?.length) return user.roles.map((ur) => ur.role.name);
+  return user.role ? [user.role] : [];
 }
 
 export default function UsersPage() {
@@ -68,14 +83,27 @@ export default function UsersPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ id: string; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkStatusDialog, setBulkStatusDialog] = useState(false);
-  const [bulkStatusValue, setBulkStatusValue] = useState('banned');
+  const [bulkStatusValue, setBulkStatusValue] = useState('SUSPENDED');
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [tab, setTab] = useState(0);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [rolesTarget, setRolesTarget] = useState<AssignRolesTarget | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['users', page, limit, search, sortBy, sortOrder],
+    queryKey: ['users', page, limit, search, statusFilter, sortBy, sortOrder],
     queryFn: () =>
-      api.get('/users', { params: { page: page + 1, limit, search: search || undefined, sortBy, sortOrder } }).then((r) => r.data),
+      api
+        .get('/users', {
+          params: {
+            page: page + 1,
+            limit,
+            search: search || undefined,
+            status: statusFilter || undefined,
+            sortBy,
+            sortOrder,
+          },
+        })
+        .then((r) => r.data),
   });
 
   const statusMutation = useMutation({
@@ -114,9 +142,14 @@ export default function UsersPage() {
     switch (status) {
       case 'ACTIVE': return 'success';
       case 'SUSPENDED': return 'warning';
-      case 'BANNED': return 'error';
+      case 'BANNED':
+      case 'BLOCKED': return 'error';
       default: return 'default';
     }
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   const columns = [
@@ -129,7 +162,11 @@ export default function UsersPage() {
         </Box>
       </Box>
     )},
-    { id: 'role', label: 'Role', render: (row: User) => <Chip label={row.role} size="small" variant="outlined" /> },
+    { id: 'role', label: 'Role', render: (row: User) => (
+      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+        {roleNames(row).map((name) => <Chip key={name} label={name} size="small" variant="outlined" />)}
+      </Box>
+    ) },
     { id: 'status', label: 'Status', render: (row: User) => <Chip label={row.status} size="small" color={statusColor(row.status) as any} variant="outlined" /> },
     { id: 'lastLogin', label: 'Last Login', render: (row: User) => <Typography variant="body2">{row.lastLogin ? new Date(row.lastLogin).toLocaleDateString() : '—'}</Typography> },
     { id: 'createdAt', label: 'Joined', render: (row: User) => <Typography variant="body2">{new Date(row.createdAt).toLocaleDateString()}</Typography> },
@@ -148,20 +185,32 @@ export default function UsersPage() {
         <PageHeader
           title="Users"
           subtitle={`${(data?.meta?.total || 0).toLocaleString()} registered users`}
-          actionLabel="Add User"
-          onAction={() => {}}
         />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>{(error as any)?.response?.data?.message || (error as any)?.message || 'Failed'}</Alert>
         )}
 
+        <TextField
+          size="small"
+          placeholder="Search users..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+          sx={{ mb: 2, maxWidth: 360, display: 'block' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon size={16} />
+              </InputAdornment>
+            ),
+          }}
+        />
+
         {/* Active Tab */}
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-          <Tab label="All Users" />
-          <Tab label="Active" />
-          <Tab label="Suspended" />
-          <Tab label="Banned" />
+        <Tabs value={tab} onChange={(_, v) => { setTab(v); setStatusFilter(STATUS_TABS[v]); setPage(0); }} sx={{ mb: 3 }}>
+          {STATUS_TAB_LABELS.map((label) => (
+            <Tab key={label} label={label} />
+          ))}
         </Tabs>
 
         {/* Selected Actions Bar */}
@@ -195,14 +244,22 @@ export default function UsersPage() {
               >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                    <Avatar src={user.avatar || ''} sx={{ width: 44, height: 44 }}>{user.name.charAt(0).toUpperCase()}</Avatar>
+                    <Checkbox
+                      size="small"
+                      checked={selectedIds.includes(user.id)}
+                      onChange={() => toggleSelected(user.id)}
+                      inputProps={{ 'aria-label': `Select ${user.name}` }}
+                    />
+                    <Avatar src={user.avatar || user.avatarUrl || ''} sx={{ width: 44, height: 44 }}>{user.name.charAt(0).toUpperCase()}</Avatar>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="subtitle2" fontWeight={700}>{user.name}</Typography>
                       <Typography variant="caption" color="text.secondary">{user.email}</Typography>
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip label={user.role} size="small" variant="outlined" />
+                    {roleNames(user).map((name) => (
+                      <Chip key={name} label={name} size="small" variant="outlined" />
+                    ))}
                     <Chip label={user.status} size="small" color={statusColor(user.status) as any} variant="outlined" />
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -210,6 +267,20 @@ export default function UsersPage() {
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
+                  <Tooltip title="Assign roles">
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        setRolesTarget({
+                          id: user.id,
+                          name: user.name,
+                          roleIds: (user.roles || []).map((ur) => ur.role.id),
+                        })
+                      }
+                    >
+                      <UserCogIcon size={18} />
+                    </IconButton>
+                  </Tooltip>
                   <IconButton size="small" onClick={() => { setResetDialog(user.id); setNewPassword(''); }}><ResetIcon size={18} /></IconButton>
                   <IconButton size="small" onClick={() => { setStatusDialog({ id: user.id, status: user.status }); setStatusValue(user.status); }}><RefreshIcon size={18} /></IconButton>
                   <IconButton size="small" color="error" onClick={() => setDeleteDialog({ id: user.id, name: user.name })}><DeleteIcon size={18} /></IconButton>
@@ -236,7 +307,8 @@ export default function UsersPage() {
               <Select value={statusValue} label="Status" onChange={(e) => setStatusValue(e.target.value)}>
                 <MenuItem value="ACTIVE">Active</MenuItem>
                 <MenuItem value="SUSPENDED">Suspended</MenuItem>
-                <MenuItem value="BANNED">Banned</MenuItem>
+                <MenuItem value="BLOCKED">Blocked</MenuItem>
+                <MenuItem value="DELETED">Deleted</MenuItem>
               </Select>
             </FormControl>
           </DialogContent>
@@ -295,8 +367,9 @@ export default function UsersPage() {
             <FormControl fullWidth sx={{ mt: 2 }}>
               <InputLabel>Status</InputLabel>
               <Select value={bulkStatusValue} label="Status" onChange={(e) => setBulkStatusValue(e.target.value)}>
-                <MenuItem value="suspended">Suspended</MenuItem>
-                <MenuItem value="banned">Banned</MenuItem>
+                <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                <MenuItem value="BLOCKED">Blocked</MenuItem>
+                <MenuItem value="DELETED">Deleted</MenuItem>
               </Select>
             </FormControl>
           </DialogContent>
@@ -321,6 +394,9 @@ export default function UsersPage() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Assign Roles Dialog */}
+        <AssignRolesDialog user={rolesTarget} onClose={() => setRolesTarget(null)} />
       </Box>
     </FadeIn>
   );

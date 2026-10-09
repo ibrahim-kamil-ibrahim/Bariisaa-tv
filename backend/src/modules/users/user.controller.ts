@@ -128,3 +128,17 @@ export async function adminResetPassword(req: AuthRequest, res: Response, next: 
   }
 }
 
+export async function assignRoles(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await userService.assignUserRoles(
+      req.params.id as string,
+      req.body.roleIds,
+      req.userId!,
+      req.userRoles || []
+    );
+    successResponse(res, data, 'User roles updated');
+  } catch (error) {
+    next(error);
+  }
+}
+

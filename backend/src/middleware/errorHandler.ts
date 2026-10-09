@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { errorResponse } from '../utils/response';
+import logger from '../utils/logger';
 
 export class AppError extends Error {
   statusCode: number;
@@ -16,12 +17,12 @@ export class AppError extends Error {
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
     if (!err.isOperational) {
-      console.error('AppError (non-operational):', err);
+      logger.error('AppError (non-operational):', err);
     }
     return errorResponse(res, err.message, err.statusCode);
   }
 
-  console.error('Unexpected error:', err);
+  logger.error('Unexpected error:', err);
 
   if (err.name === 'ZodError') {
     return errorResponse(res, 'Validation error', 422);

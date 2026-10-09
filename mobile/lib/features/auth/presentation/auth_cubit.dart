@@ -151,6 +151,17 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthGuest());
   }
 
+  /// Called by ApiClient when the refresh token is rejected (session dead).
+  /// Only acts when the user currently appears signed in.
+  void handleSessionExpired() {
+    final s = state;
+    if (s is AuthAuthenticated || s is AuthOtpVerified) {
+      emit(const AuthSessionExpired(
+        'Your session has expired. Please sign in again.',
+      ));
+    }
+  }
+
   Future<void> sendEmailOtp(String email) async {
     final prev = state;
     emit(AuthOtpLoading());

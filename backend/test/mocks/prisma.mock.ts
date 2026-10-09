@@ -21,8 +21,17 @@ export const mockPrisma: any = {
   book: createMockModel(),
   mediaFile: createMockModel(),
   subscription: createMockModel(),
+  userRole: createMockModel(),
+  role: createMockModel(),
+  rolePermission: createMockModel(),
+  permission: createMockModel(),
   $transaction: jest.fn((cb: any) => cb(mockPrisma)),
 };
+
+// Reasonable defaults for lookups that run on happy paths (e.g. login
+// now resolves the user's role names via userRole.findMany).
+mockPrisma.userRole.findMany.mockResolvedValue([]);
+mockPrisma.role.findMany.mockResolvedValue([]);
 
 jest.mock('../../src/config/database', () => ({
   __esModule: true,

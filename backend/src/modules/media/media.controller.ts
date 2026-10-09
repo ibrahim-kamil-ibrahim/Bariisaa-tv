@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middleware/authenticate';
 import * as mediaService from './media.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
+import { uploadFile as uploadToStorage } from '../../utils/signedUrl';
 
 export async function createFolder(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -41,7 +42,7 @@ export async function uploadFile(req: AuthRequest, res: Response, next: NextFunc
       type: req.file.mimetype.split('/')[0] as any,
       mimeType: req.file.mimetype,
       size: req.file.size,
-      url: `/uploads/${req.file.filename}`,
+      url: await uploadToStorage(req.file.buffer, req.file.originalname, req.file.mimetype, 'media'),
       folderId: req.body.folderId || null,
       tags: req.body.tags ? JSON.parse(req.body.tags) : [],
     }, req.userId!);

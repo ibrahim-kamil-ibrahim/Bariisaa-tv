@@ -1,6 +1,8 @@
 # Deployment Guide — Naik Audio Book & E-Book Platform
 
-> **Phase 39** | Complete production deployment guide covering backend (NestJS/EC2), admin panel (Vercel/Netlify/S3+CF), mobile apps (Android/iOS stores), and CI/CD pipeline.
+> **Phase 39** | Complete production deployment guide covering backend (Express/EC2), admin panel (Vercel/Netlify/S3+CF), mobile apps (Android/iOS stores), and CI/CD pipeline.
+
+> **Stack facts (this repo):** Express 4 on Node 22 (port **3000**, prefix `/api/v1`), PostgreSQL 18 via Prisma 5 (`npx prisma migrate deploy` — do NOT use `migrate dev`), React+Vite admin at `bariisaa.com` domains, Flutter mobile. Health endpoint is **`GET /health`** → `{"status":"ok"}`. API docs at **`/api/v1/docs`**. Redis is **not required** by the current stack (in-memory rate limiting); treat Redis/Sentry/Datadog sections below as optional hardening. Domains: `api.bariisaa.com` (prod), `staging-api.bariisaa.com` (staging).
 
 ---
 
@@ -21,7 +23,7 @@
 
 | Component     | Version    | Purpose                              |
 |---------------|------------|--------------------------------------|
-| Node.js       | 20.x LTS   | Backend NestJS runtime               |
+| Node.js       | 20.x LTS   | Backend Express runtime               |
 | PostgreSQL    | 15+        | Primary database                     |
 | Redis         | 7+         | Caching, rate limiting, queues       |
 | Nginx         | 1.24+      | Reverse proxy, SSL termination       |
@@ -142,7 +144,7 @@ Contents of `/opt/naik/backend/.env`:
 ```env
 # Server
 NODE_ENV=production
-PORT=4000
+PORT=3000
 
 # Database
 DATABASE_URL=postgresql://naik_user:your_strong_password@localhost:5432/naik_db
@@ -177,10 +179,10 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey
 SMTP_PASS=SG....
-SMTP_FROM=noreply@naik.com
+SMTP_FROM=noreply@bariisaa.com
 
 # Frontend
-FRONTEND_URL=https://admin.naik.com
+FRONTEND_URL=https://admin.bariisaa.com
 
 # Monitoring
 SENTRY_DSN=https://xxx@xxxx.ingest.sentry.io/xxxxx
@@ -190,7 +192,7 @@ THROTTLE_TTL=60
 THROTTLE_LIMIT=100
 
 # Admin Seed
-ADMIN_EMAIL=admin@naik.com
+ADMIN_EMAIL=admin@bariisaa.com
 ADMIN_PASSWORD=<strong-password>
 ```
 
@@ -266,7 +268,7 @@ Create Nginx configuration:
 ```nginx
 server {
     listen 80;
-    server_name api.naik.com;
+    server_name api.bariisaa.com;
 
     # Redirect to HTTPS
     return 301 https://$server_name$request_uri;
@@ -274,11 +276,11 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name api.naik.com;
+    server_name api.bariisaa.com;
 
     # SSL certificates (managed by Certbot)
-    ssl_certificate /etc/letsencrypt/live/api.naik.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.naik.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/api.bariisaa.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.bariisaa.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
     ssl_prefer_server_ciphers on;
@@ -298,7 +300,7 @@ server {
     client_max_body_size 500M;
 
     location / {
-        proxy_pass http://127.0.0.1:4000;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -312,8 +314,8 @@ server {
     }
 
     # Health check endpoint (no auth)
-    location /api/health {
-        proxy_pass http://127.0.0.1:4000/api/health;
+    location /health {
+        proxy_pass http://127.0.0.1:3000/health;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -342,7 +344,7 @@ sudo systemctl restart nginx
 ### 10. SSL Certificate with Certbot
 
 ```bash
-sudo certbot --nginx -d api.naik.com --non-interactive --agree-tos -m admin@naik.com
+sudo certbot --nginx -d api.bariisaa.com --non-interactive --agree-tos -m admin@bariisaa.com
 
 # Verify auto-renewal
 sudo certbot renew --dry-run
@@ -362,21 +364,15 @@ sudo ufw status
 
 ```bash
 # Test local health
-curl http://localhost:4000/api/health
+curl http://localhost:3000/health
 
 # Test via Nginx
-curl https://api.naik.com/api/health
+curl https://api.bariisaa.com/health
 
 # Expected response:
 # {
-#   "success": true,
-#   "data": {
-#     "status": "healthy",
-#     "uptime": 12345,
-#     "database": "connected",
-#     "redis": "connected",
-#     "timestamp": "2025-01-15T10:30:00Z"
-#   }
+#   "status": "ok",
+#   "timestamp": "2026-10-09T10:30:00.000Z"
 # }
 ```
 
@@ -405,7 +401,7 @@ cd admin
 
 # Create production .env file
 cat > .env.production << 'EOF'
-VITE_API_BASE_URL=https://api.naik.com
+VITE_API_BASE_URL=https://api.bariisaa.com
 VITE_APP_NAME=Naik Admin
 VITE_SENTRY_DSN=https://xxx@xxxx.ingest.sentry.io/xxxxx
 VITE_GOOGLE_ANALYTICS_ID=G-XXXXXXX
@@ -456,7 +452,7 @@ Create `vercel.json` in admin root:
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "https://api.naik.com",
+    "VITE_API_BASE_URL": "https://api.bariisaa.com",
     "VITE_APP_NAME": "Naik Admin"
   }
 }
@@ -505,10 +501,10 @@ Create `netlify.toml` in admin root:
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://api.naik.com https://sentry.io;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://api.bariisaa.com https://sentry.io;"
 
 [context.production.environment]
-  VITE_API_BASE_URL = "https://api.naik.com"
+  VITE_API_BASE_URL = "https://api.bariisaa.com"
   VITE_APP_NAME = "Naik Admin"
 ```
 
@@ -555,7 +551,7 @@ CloudFront distribution settings:
 - Cache Policy: CachingOptimized
 - Error Pages: 404 → /index.html (200), 403 → /index.html (200)
 - Price Class: Use Only North America and Europe (reduce cost)
-- Alternate Domain Name: admin.naik.com
+- Alternate Domain Name: admin.bariisaa.com
 - SSL Certificate: ACM certificate in us-east-1
 
 ---
@@ -637,7 +633,7 @@ android {
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="https" android:host="naik.com"/>
+        <data android:scheme="https" android:host="bariisaa.com"/>
         <data android:scheme="naik" android:host="open"/>
     </intent-filter>
     
@@ -758,7 +754,7 @@ In Xcode:
 4. Enable capabilities:
    - Push Notifications
    - Background Modes (Remote notifications)
-   - Associated Domains (`applinks:naik.com`, `naik://open`)
+   - Associated Domains (`applinks:bariisaa.com`, `naik://open`)
 
 #### 4. Generate App Icon
 
@@ -855,8 +851,8 @@ xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/
    - Privacy Policy URL
 3. Build selection → Select the uploaded build
 4. App Review Information:
-   - Sign-in credentials: `admin@naik.com` / `Admin@123`
-   - Contact: `support@naik.com` / `+1-555-0123`
+   - Sign-in credentials: `admin@bariisaa.com` / `Admin@123`
+   - Contact: `support@bariisaa.com` / `+1-555-0123`
    - Notes: "Demo account has full access to all features"
 5. Submit for Review
 
@@ -892,22 +888,22 @@ cd mobile/android
     <action android:name="android.intent.action.VIEW"/>
     <category android:name="android.intent.category.DEFAULT"/>
     <category android:name="android.intent.category.BROWSABLE"/>
-    <data android:scheme="https" android:host="naik.com"/>
+    <data android:scheme="https" android:host="bariisaa.com"/>
     <data android:scheme="naik" android:host="open"/>
 </intent-filter>
 ```
 
 Deeplink paths:
-- `https://naik.com/book/{id}` → Open book detail
-- `https://naik.com/profile` → Open profile
-- `https://naik.com/subscription` → Open subscription plans
+- `https://bariisaa.com/book/{id}` → Open book detail
+- `https://bariisaa.com/profile` → Open profile
+- `https://bariisaa.com/subscription` → Open subscription plans
 - `naik://open/book/{id}` → Native deep link
 
 #### iOS
 
 In Xcode: Runner → Signing & Capabilities → + → Associated Domains
 Add:
-- `applinks:naik.com`
+- `applinks:bariisaa.com`
 - `naik://open`
 
 Handle in Flutter:
@@ -1091,7 +1087,7 @@ jobs:
       - name: Run smoke tests
         run: |
           sleep 10
-          curl -f https://staging-api.naik.com/api/health || exit 1
+          curl -f https://staging-api.bariisaa.com/health || exit 1
           echo "Smoke tests passed"
 
   deploy-production:
@@ -1130,7 +1126,7 @@ jobs:
       - name: Run smoke tests
         run: |
           sleep 15
-          curl -f https://api.naik.com/api/health || exit 1
+          curl -f https://api.bariisaa.com/health || exit 1
           echo "Production smoke tests passed"
 
       - name: Notify Sentry release
@@ -1328,13 +1324,13 @@ resource "aws_lb" "naik" {
 
 resource "aws_lb_target_group" "naik" {
   name        = "naik-tg"
-  port        = 4000
+  port        = 3000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "instance"
 
   health_check {
-    path                = "/api/health"
+    path                = "/health"
     interval            = 30
     timeout             = 5
     healthy_threshold   = 2
@@ -1454,7 +1450,7 @@ const prisma = new PrismaClient({
 });
 ```
 
-### 4. Redis Caching
+### 4. Redis Caching (optional � not used by the current stack; illustrative snippet)
 
 ```bash
 # Use ElastiCache Redis cluster
@@ -1610,6 +1606,63 @@ npx prisma migrate deploy  # Re-runs migrations up to target
 **Android**: In Play Console → Release → Retire problematic release → Re-promote previous working release.
 
 **iOS**: In App Store Connect → My Apps → iOS App → Select previous version → "Make Current" (if compatible with latest iOS).
+
+---
+
+## Backup Strategy
+
+### Database backups (built-in)
+
+The backend ships a **Backups module** (`backend/src/modules/backups/`):
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /api/v1/backups` | `settings:create` | Create a backup (runs `pg_dump` in background, audited) |
+| `GET /api/v1/backups` | `settings:read` | List backup history (status: IN_PROGRESS/COMPLETED/FAILED) |
+| `POST /api/v1/backups/:id/restore` | `settings:update` | Restore from a completed backup (audited) |
+| `DELETE /api/v1/backups/:id` | `settings:delete` | Delete a backup (audited) |
+
+Implementation notes:
+- `pg_dump` is invoked with connection parameters derived from `DATABASE_URL` (**password passed via `PGPASSWORD` env — never on the argv, never logged**), `maxBuffer` 512MB.
+- Requires `pg_dump`/`pg_restore` binaries on the server PATH (PostgreSQL client tools).
+- Backup rows are tracked in the `backups` table (Prisma `Backup` model).
+
+### Recommended production schedule
+
+```bash
+# Nightly logical backup + 7-day retention (cron on the DB host)
+0 2 * * * PGPASSWORD="$DB_PASS" pg_dump -h localhost -U naik_user -d naik_db -Fc \
+  -f /var/backups/naik/naik_db_$(date +\%F).dump && \
+  find /var/backups/naik -name 'naik_db_*.dump' -mtime +7 -delete
+```
+
+- **Offsite**: sync `/var/backups/naik/` to S3/R2 with lifecycle rules (e.g., `rclone sync` or `aws s3 sync`).
+- **WAL archiving / PITR** (optional, RDS or `archive_command`) for point-in-time recovery.
+- **Restore drill**: restore into a scratch DB quarterly: `pg_restore -d naik_restore naik_db_<date>.dump`.
+
+### Files (media)
+
+- S3/R2 buckets: enable **versioning** + lifecycle (delete old versions after 30–90 days).
+- Media rows are DB-backed (`media_files`); DB backup + bucket versioning together are sufficient to rebuild.
+
+---
+
+## Admin Panel Deployment Notes (SPA fallback)
+
+The admin panel is a Vite SPA — deep links (`/books/123/edit`, `/admins`, …) must fall back to `index.html`:
+
+- **Netlify**: `admin/public/_redirects` is committed (`/* /index.html 200`) and copied into `dist/` by Vite. No extra config needed.
+- **Vercel**: `vercel.json` rewrites (see Option A above).
+- **Nginx** (self-hosted): add
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+- API base URL is injected at build time (`VITE_API_BASE_URL=https://api.bariisaa.com`); rebuild on domain change — do not commit `.env.production`.
+- After login the panel only talks to the API (no server-side rendering needed); CORS must allow the admin origin (`CORS_ORIGIN`).
 
 ---
 

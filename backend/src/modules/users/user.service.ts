@@ -137,6 +137,9 @@ export async function listUsers(
         _count: {
           select: { devices: true, subscriptions: true },
         },
+        roles: {
+          include: { role: { select: { id: true, name: true, description: true } } },
+        },
       },
     }),
     prisma.user.count({ where }),
@@ -224,4 +227,36 @@ export async function adminResetPassword(userId: string, newPassword?: string) {
   ]);
 
   return { tempPassword: password };
+}
+
+export async function assignUserRoles(userId: string, roleIds: string[], actorId: string, actorRoles: string[]) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { roles: { include: { role: true } } },
+  });
+  if (!user) throw new AppError('User not found', 404);
+
+  const uniqueRoleIds = [...new Set(roleIds)];
+  const roles = uniqueRoleIds.length
+    ? await prisma.role.findMany({ where: { id: { in: uniqueRoleIds } } })
+    : [];
+  if (roles.length !== uniqueRoleIds.length) throw new AppError('One or more roles do not exist', 400);
+
+  const hadSuperAdmin = user.roles.some((r) => r.role.name === 'super_admin');
+  const keepsSuperAdmin = roles.some((r) => r.name === 'super_admin');
+  if (hadSuperAdmin && !keepsSuperAdmin) {
+    const actorIsSuperAdmin = actorRoles.includes('super_admin');
+    if (!actorIsSuperAdmin) throw new AppError('Only a super admin can remove the super admin role', 403);
+    if (actorId === userId) throw new AppError('You cannot remove your own super admin role', 403);
+  }
+
+  await prisma.$transaction([
+    prisma.userRole.deleteMany({ where: { userId } }),
+    ...roles.map((role) => prisma.userRole.create({ data: { userId, roleId: role.id } })),
+  ]);
+
+  return {
+    userId,
+    roles: roles.map((r) => ({ id: r.id, name: r.name, description: r.description })),
+  };
 }

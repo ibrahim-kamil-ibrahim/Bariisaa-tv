@@ -6,8 +6,8 @@
 
 A full-stack children's audio book and e-book platform with a **Flutter** mobile app, **Node.js/Express** backend API, and **React** admin panel. Designed for kids with a playful, colorful UI and parental controls. Auth-free mobile experience — users jump straight into content.
 
-![Flutter](https://img.shields.io/badge/Flutter-3.24-02569B?logo=flutter)
-![Dart](https://img.shields.io/badge/Dart-3.11-0175C2?logo=dart)
+![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter)
+![Dart](https://img.shields.io/badge/Dart-3.13-0175C2?logo=dart)
 ![Node.js](https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)
@@ -178,12 +178,12 @@ cd backend
 npm install
 cp .env.example .env
 # Edit .env with your database URL, JWT secrets, API keys
-npx prisma migrate dev
+npx prisma migrate deploy   # NOT migrate dev (known Prisma index drift; see docs/SETUP_GUIDE.md)
 npx prisma db seed
 npm run dev
 ```
 
-Backend runs at `http://localhost:3000`. API docs at `http://localhost:3000/api-docs`.
+Backend runs at `http://localhost:3000`. Health check: `GET /health` → `{"status":"ok"}`. API docs (Swagger UI) at `http://localhost:3000/api/v1/docs` (`npm run swagger` prints the spec).
 
 ### 2. Mobile App Setup
 
@@ -627,8 +627,10 @@ Semantic accents: playful red `#E8342E` (error), fresh green `#4CAF50` (success)
 - **Auth:** JWT access tokens (15m) + refresh tokens (30d) with rotation
 - **Middleware:** Helmet, CORS, compression, rate limiting, audit logging
 - **File Storage:** S3-compatible (MinIO) with local filesystem fallback
-- **Logging:** Winston
-- **Docs:** Swagger UI at `/api-docs`
+- **Logging:** Winston (console + file), uncaught-exception handler logs and exits
+- **Process:** graceful shutdown on SIGTERM/SIGINT (server close + Prisma disconnect, 10s force)
+- **Health:** `GET /health` and `GET /api/v1/health` → `{"status":"ok"}`
+- **Docs:** Swagger UI at `/api/v1/docs` (`npm run swagger` to dump spec JSON)
 
 ### Authentication & Security
 
@@ -651,11 +653,13 @@ Semantic accents: playful red `#E8342E` (error), fresh green `#4CAF50` (success)
 
 **Role-Based Access Control** with granular permissions:
 
-- **Roles:** `super_admin`, `content_manager`, `support_agent`, custom
+- **Roles (seeded):** `super_admin`, `admin`, `editor`, `moderator` (legacy `content_manager` / `support_agent` removed by migration `20261009000001_cleanup_legacy_roles`)
 - **Permissions:** `resource:action` format (e.g., `books:create`, `users:read`)
-- **Resources (18):** users, books, categories, authors, subscriptions, payments, coupons, notifications, reports, roles, audit, settings, storytelling, music, my-doctor, my-captain
-- **Actions:** create, read, update, delete
+- **Resources (20):** users, roles, books, categories, authors, subscriptions, payments, coupons, notifications, reports, audit, settings, media, storytelling, music, my-doctor, my-captain, habits, cms, filters
+- **Actions:** create, read, update, delete (88 permissions for `super_admin`; admin 80, editor 44, moderator 15)
 - `super_admin` bypasses all permission checks
+- **Role assignment:** `PUT /api/v1/users/:id/roles` body `{"roleIds":["..."]}` (guards: no self-demotion, no removing the last super-admin; audited)
+- Login responses include `user.roles: string[]`; `GET /api/v1/users` items include resolved roles for the admin panel
 
 ### Database Models (50+ Tables)
 
@@ -768,9 +772,10 @@ Semantic accents: playful red `#E8342E` (error), fresh green `#4CAF50` (success)
 | PUT | `/avatar` | Auth | Upload avatar |
 | GET | `/devices` | Auth | List devices |
 | DELETE | `/devices/:id` | Auth | Remove device |
-| GET | `/` | Admin | List all users |
+| GET | `/` | Admin | List all users (includes resolved `roles`) |
 | GET | `/:id` | Admin | Get user by ID |
 | PATCH | `/:id/status` | Admin | Update user status |
+| PUT | `/:id/roles` | Admin | Assign roles `{roleIds: string[]}` (RBAC guards + audit) |
 | POST | `/:id/reset-password` | Admin | Admin reset password |
 
 #### Books (`/api/v1/books`)
@@ -989,6 +994,8 @@ Semantic accents: playful red `#E8342E` (error), fresh green `#4CAF50` (success)
 
 **Authentication:** login-only. The admin panel exposes a single `/login` route (username + password → dashboard). Sign-up, forgot-password, OTP, Google, and OAuth routes have been removed from `App.tsx`.
 
+**Role gating:** `PrivateRoute` checks the logged-in user's `roles[]` (returned by the API) and renders an "Unauthorized" screen for disallowed routes; `Layout` hides nav items the current role cannot access (`hasRole()`); root paths are mounted at both `/` and `/admin` (SPA fallback via `admin/public/_redirects`).
+
 ### Pages (16 Routes)
 
 | Page | Route | Description |
@@ -1000,7 +1007,9 @@ Semantic accents: playful red `#E8342E` (error), fresh green `#4CAF50` (success)
 | **Book Detail** | `/books/:id` | Cover, metadata, audio/PDF files |
 | **Categories** | `/categories` | CRUD with image upload |
 | **Authors** | `/authors` | CRUD with photo upload |
-| **Users** | `/users` | Status management, password reset |
+| **Users** | `/users` | Status tabs (server-side filter), search, role chips, bulk status actions, **Assign Roles dialog** |
+| **Admins** | `/admins` | Admin user management: create, **assign roles** (super_admin/admin/editor/moderator), status |
+| **Media** | `/media` | Media manager (uploaded files browser) |
 | **Roles** | `/roles` | Permission matrix (18 resources x 4 actions) |
 | **Plans** | `/subscriptions` | Subscription plan management |
 | **Coupons** | `/coupons` | Discount coupon CRUD |
@@ -1167,8 +1176,8 @@ npm start                    # Production server
 npm test                     # Jest with coverage
 npm run lint                 # ESLint
 npm run prisma:studio        # Prisma GUI
-npm run swagger              # Regenerate Swagger docs
-npx prisma migrate dev       # Run migrations
+npm run swagger              # Print/dump OpenAPI spec
+npx prisma migrate deploy    # Apply migrations (use this, not migrate dev)
 npx prisma db seed           # Seed default data
 ```
 
@@ -1219,6 +1228,11 @@ npm run preview              # Preview production build
 | `FIREBASE_CLIENT_EMAIL` | No | Firebase client email |
 | `UPLOAD_DIR` | No | Local upload directory (default: ./uploads) |
 | `MAX_FILE_SIZE` | No | Max upload size in bytes (default: 10485760) |
+| `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | No | S3-compatible object storage (MinIO/S3) for files |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_ENDPOINT` | No | Cloudflare R2 for large media (direct-to-R2 presigned uploads) |
+| `SEED_ADMIN_PASSWORD` | Prod | Required in production; seed aborts if unset |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot integration |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | No | Twilio SMS/OTP |
 
 ---
 
@@ -1229,14 +1243,14 @@ After running `npx prisma db seed`:
 | Field | Value |
 |-------|-------|
 | **Admin Login** | `naik` |
-| **Admin Password** | `naik123` |
+| **Admin Password** | `naik123` (dev default) — **production requires `SEED_ADMIN_PASSWORD` env, seed aborts without it** |
 | **Admin Role** | `super_admin` |
 
 **Testing the admin login:** credentials `naik` / `naik123` work in the admin panel at `http://localhost:5173`.
 
 **Seed also creates:**
-- `content_manager`, `support_agent` roles
-- All 72 permissions (18 resources x 4 actions)
+- `super_admin`, `admin`, `editor`, `moderator` roles (legacy roles removed)
+- Permission catalog: 20 resources x up to 4 actions (88 for super_admin)
 - Default plans: Monthly ($4.99), Annual ($39.99)
 - Default app settings
 - `bariisaa-mobile` OAuth client (for PKCE authentication)
@@ -1251,20 +1265,16 @@ Proprietary and confidential.
 
 ### Build Environment Notes
 
-When building the mobile app in debug mode, Flutter emits warnings about upcoming version deprecations:
+The Android toolchain has been upgraded (verified — debug + release APKs build and run):
 
-| Component | Current Version | Minimum Required | Notes |
-|-----------|----------------|------------------|-------|
-| Gradle | 8.14.0 | 9.1.0+ | Upgrade `gradle/wrapper/gradle-wrapper.properties` → `distributionUrl` |
-| Android Gradle Plugin (AGP) | 8.11.1 | 9.0.1+ | Update `settings.gradle` plugins block or `build.gradle` classpath |
-| Kotlin | 2.2.20 | 2.3.20+ | Update `settings.gradle` plugins block or `build.gradle` `ext.kotlin_version` |
+| Component | Version | Notes |
+|-----------|---------|-------|
+| Gradle | 9.1.0 | `gradle-wrapper.properties` |
+| Android Gradle Plugin (AGP) | 9.0.1 | `settings.gradle` (`android.builtInKotlin=false`, `android.newDsl=false`) |
+| Kotlin | 2.3.20 | Built-in Kotlin plugin mode |
+| JDK | 21 | Required by AGP 9; CI uses `java-version: 21` |
 
-These are **warnings only** — the app builds and runs successfully. To bypass validation temporarily:
-```bash
-flutter run --android-skip-build-dependency-validation
-```
-
-Full upgrades require coordinated updates across `gradle-wrapper.properties`, `settings.gradle`, and `build.gradle` — see [Gradle Wrapper docs](https://docs.gradle.org/current/userguide/gradle_wrapper.html).
+Release signing reads `mobile/android/key.properties` (git-ignored; falls back to debug signing when absent — see `mobile/android/app/build.gradle.kts`). ProGuard/R8 rules in `mobile/android/app/proguard-rules.pro` (incl. Play Core `-dontwarn` fix).
 
 ---
 

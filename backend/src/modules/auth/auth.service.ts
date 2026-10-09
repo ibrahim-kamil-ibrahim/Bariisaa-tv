@@ -52,6 +52,14 @@ async function createTokenPair(userId: string, familyId?: string) {
   return { accessToken, refreshToken: refreshTokenValue };
 }
 
+export async function getUserRoleNames(userId: string): Promise<string[]> {
+  const rows = await prisma.userRole.findMany({
+    where: { userId },
+    include: { role: { select: { name: true } } },
+  });
+  return rows.map((r) => r.role.name);
+}
+
 export async function signupWithEmail(email: string, password: string, name: string) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new AppError('Email already registered', 409);
@@ -194,6 +202,7 @@ export async function loginWithUsername(username: string, password: string, ip?:
 
   resetAttempts(lockoutKey);
   const tokens = await createTokenPair(user.id);
+  const roles = await getUserRoleNames(user.id);
 
   return {
     user: {
@@ -203,6 +212,7 @@ export async function loginWithUsername(username: string, password: string, ip?:
       phone: user.phone,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      roles,
     },
     ...tokens,
   };
@@ -235,6 +245,7 @@ export async function login(identifier: string, password: string, isEmail: boole
 
   resetAttempts(lockoutKey);
   const tokens = await createTokenPair(user.id);
+  const roles = await getUserRoleNames(user.id);
 
   return {
     user: {
@@ -245,6 +256,7 @@ export async function login(identifier: string, password: string, isEmail: boole
       avatarUrl: user.avatarUrl,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      roles,
     },
     ...tokens,
   };
@@ -281,6 +293,7 @@ export async function loginWithOtp(phone: string, otp: string) {
   }
 
   const tokens = await createTokenPair(user.id);
+  const roles = await getUserRoleNames(user.id);
 
   return {
     user: {
@@ -289,6 +302,7 @@ export async function loginWithOtp(phone: string, otp: string) {
       phone: user.phone,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      roles,
     },
     ...tokens,
   };
@@ -639,6 +653,7 @@ export async function loginWithGoogle(idToken: string) {
   }
 
   const tokens = await createTokenPair(user.id);
+  const roles = await getUserRoleNames(user.id);
 
   return {
     user: {
@@ -649,6 +664,7 @@ export async function loginWithGoogle(idToken: string) {
       avatarUrl: user.avatarUrl,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      roles,
     },
     ...tokens,
   };

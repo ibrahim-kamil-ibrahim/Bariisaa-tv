@@ -99,7 +99,7 @@ jobs:
       - name: Smoke tests
         run: |
           sleep 10
-          curl -f https://staging-api.naik.com/health || exit 1
+          curl -f https://staging-api.bariisaa.com/health || exit 1
 
   deploy-production:
     name: Deploy to Production
@@ -130,4 +130,4 @@ jobs:
       - name: Smoke tests
         run: |
           sleep 15
-          curl -f https://api.naik.com/health || exit 1
+          curl -f https://api.bariisaa.com/health || exit 1

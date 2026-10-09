@@ -4,29 +4,42 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('naik123', 12);
+  // In production the super-admin password MUST be provided via environment.
+  const production = process.env.NODE_ENV === 'production';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || (production ? null : 'naik123');
+  if (!adminPassword) {
+    throw new Error('SEED_ADMIN_PASSWORD environment variable is required when NODE_ENV=production');
+  }
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'super_admin' },
     update: {},
-    create: { name: 'super_admin', description: 'Full system access' },
+    create: { name: 'super_admin', description: 'Full system access (bypasses all permission checks)' },
   });
 
-  await prisma.role.upsert({
-    where: { name: 'content_manager' },
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'admin' },
     update: {},
-    create: { name: 'content_manager', description: 'Manage books, categories, authors' },
+    create: { name: 'admin', description: 'Full administrative access without super-admin bypass' },
   });
 
-  await prisma.role.upsert({
-    where: { name: 'support_agent' },
+  const editorRole = await prisma.role.upsert({
+    where: { name: 'editor' },
     update: {},
-    create: { name: 'support_agent', description: 'View users, handle support' },
+    create: { name: 'editor', description: 'Create and manage content (books, stories, music, media)' },
+  });
+
+  const moderatorRole = await prisma.role.upsert({
+    where: { name: 'moderator' },
+    update: {},
+    create: { name: 'moderator', description: 'Review reports, moderate content, view users and audit logs' },
   });
 
   const resources = [
     'users', 'books', 'categories', 'authors', 'subscriptions', 'payments',
     'coupons', 'notifications', 'reports', 'roles', 'audit', 'settings',
+    'media', 'storytelling', 'music', 'doctor', 'captain', 'habits', 'cms', 'filters',
   ];
   const actions = ['create', 'read', 'update', 'delete'];
 
@@ -42,12 +55,38 @@ async function main() {
     }
   }
 
-  for (const perm of permissionRecords) {
+  const grant = async (roleId: string, permissionId: string) => {
     await prisma.rolePermission.upsert({
-      where: { roleId_permissionId: { roleId: superAdminRole.id, permissionId: perm.id } },
+      where: { roleId_permissionId: { roleId, permissionId } },
       update: {},
-      create: { roleId: superAdminRole.id, permissionId: perm.id },
+      create: { roleId, permissionId },
     });
+  };
+
+  for (const perm of permissionRecords) {
+    await grant(superAdminRole.id, perm.id);
+    await grant(adminRole.id, perm.id);
+  }
+
+  const editorResources = ['books', 'categories', 'authors', 'storytelling', 'music', 'doctor', 'captain', 'habits', 'cms', 'media', 'filters'];
+  for (const perm of permissionRecords) {
+    if (editorResources.includes(perm.resource)) await grant(editorRole.id, perm.id);
+  }
+
+  const moderatorResources: { resource: string; actions: string[] }[] = [
+    { resource: 'users', actions: ['read', 'update'] },
+    { resource: 'reports', actions: ['read', 'create', 'update', 'delete'] },
+    { resource: 'audit', actions: ['read'] },
+    { resource: 'notifications', actions: ['create', 'update'] },
+    { resource: 'storytelling', actions: ['read', 'update'] },
+    { resource: 'music', actions: ['read', 'update'] },
+    { resource: 'cms', actions: ['read', 'update'] },
+  ];
+  for (const spec of moderatorResources) {
+    for (const action of spec.actions) {
+      const perm = permissionRecords.find((p) => p.resource === spec.resource && p.action === action);
+      if (perm) await grant(moderatorRole.id, perm.id);
+    }
   }
 
   // Clean up old admin user if exists
@@ -121,51 +160,9 @@ async function main() {
     });
   }
 
-  // Screen themes — dynamic backgrounds & avatars (mobile consumes these)
-  const screenThemes = [
-    { screenKey: 'auth_login', label: 'Login Screen', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'auth_signup', label: 'Sign Up Screen', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'home', label: 'Home / Discovery', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'books', label: 'Books', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'book_detail', label: 'Book Detail', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'player', label: 'Audio Player', avatarLabel: 'Melody the music fox' },
-    { screenKey: 'ebook_reader', label: 'E-Book Reader', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'storytelling', label: 'Storytelling', avatarLabel: 'Tale the storyteller' },
-    { screenKey: 'music', label: 'Music', avatarLabel: 'Melody the music fox' },
-    { screenKey: 'my_doctor', label: 'My Doctor', avatarLabel: 'Dr. Buna the friendly doctor' },
-    { screenKey: 'my_captain', label: 'My Captain', avatarLabel: 'Captain Kofi' },
-    { screenKey: 'habits', label: 'Habits', avatarLabel: 'Buddy the habit helper' },
-    { screenKey: 'favorites', label: 'Favorites', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'history', label: 'History', avatarLabel: 'Bariisaa the friendly owl' },
-    { screenKey: 'profile', label: 'Profile', avatarLabel: 'Bariisaa the friendly owl' },
-  ];
-
-  for (const theme of screenThemes) {
-    await prisma.screenTheme.upsert({
-      where: { screenKey: theme.screenKey },
-      update: {},
-      create: theme,
-    });
-  }
-  console.log('Screen themes seeded.');
-
-  // Signup fields — dynamic profile form (mobile signup step 3)
-  const signupFields = [
-    { key: 'full_name', label: 'Full Name', type: 'text', required: true, order: 0 },
-    { key: 'age', label: 'Age', type: 'number', required: false, order: 1 },
-    { key: 'gender', label: 'Gender', type: 'dropdown', options: ['Male', 'Female'], required: false, order: 2 },
-    { key: 'city', label: 'City', type: 'text', required: false, order: 3 },
-    { key: 'country', label: 'Country', type: 'text', required: false, order: 4 },
-  ];
-
-  for (const field of signupFields) {
-    await prisma.signupField.upsert({
-      where: { key: field.key },
-      update: {},
-      create: field,
-    });
-  }
-  console.log('Signup fields seeded.');
+  // Screen themes & signup fields: the corresponding Prisma models were removed
+  // from the schema (no API serves them), so seeding is skipped. The tables
+  // created by historical migrations are left untouched.
 
   console.log('Infrastructure seed created successfully.');
 

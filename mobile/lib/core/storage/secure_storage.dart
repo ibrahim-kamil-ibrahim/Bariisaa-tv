@@ -76,6 +76,11 @@ class SecureStorageService {
   Future<void> setUserId(String id) =>
       _safeWrite(() => _storage.write(key: AppConstants.userIdKey, value: id));
 
+  Future<String?> getCachedUser() =>
+      _safeReadString(() => _storage.read(key: AppConstants.cachedUserKey));
+  Future<void> setCachedUser(String json) =>
+      _safeWrite(() => _storage.write(key: AppConstants.cachedUserKey, value: json));
+
   Future<String?> getDeviceId() =>
       _safeReadString(() => _storage.read(key: AppConstants.deviceIdKey));
   Future<void> setDeviceId(String id) =>
@@ -120,6 +125,7 @@ class SecureStorageService {
     await _safeWrite(() => _storage.delete(key: AppConstants.refreshTokenKey));
     await _safeWrite(() => _storage.delete(key: AppConstants.userIdKey));
     await _safeWrite(() => _storage.delete(key: AppConstants.deviceIdKey));
+    await _safeWrite(() => _storage.delete(key: AppConstants.cachedUserKey));
   }
 
   Future<void> clearHasUsedGuest() =>

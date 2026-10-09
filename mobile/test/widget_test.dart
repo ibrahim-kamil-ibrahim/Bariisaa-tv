@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naik_mobile/main.dart';
 import 'package:naik_mobile/core/di/injection.dart';
@@ -8,5 +9,9 @@ void main() {
     await tester.pumpWidget(const BariisaaTvApp());
     await tester.pump();
     expect(find.text('Bariisaa Tv'), findsOneWidget);
+
+    // Unmount so the splash navigation timer is cancelled before teardown.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 }

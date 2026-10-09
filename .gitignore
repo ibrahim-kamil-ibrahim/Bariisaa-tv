@@ -44,3 +44,18 @@ backend/prisma/migrations_archive_backup/
 # ── Runtime upload artifacts (local smoke/dev data) ─────
 backend/uploads/story-covers/
 backend/uploads/videos/
+
+# -- Signing material & build scratch (never commit) --
+key.properties
+*.jks
+*.keystore
+*.tsbuildinfo
+build_log*.txt
+build_output.txt
+win_build.txt
+mobile/flutter_01.png
+mobile/flutter_run.err
+backend/output.txt
+backend/stderr.txt
+backend/stdout.txt
+backend/*.err

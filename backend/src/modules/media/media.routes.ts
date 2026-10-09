@@ -6,6 +6,7 @@ import { authorize } from '../../middleware/authorize';
 import { auditLog } from '../../middleware/auditLog';
 import { validate } from '../../middleware/validate';
 import { upload } from '../../middleware/upload';
+import { uploadLimiter } from '../../middleware/rateLimiter';
 import { videoUploadUrlSchema, thumbnailUploadUrlSchema } from './video.validation';
 
 const router: Router = Router();
@@ -17,7 +18,7 @@ router.delete('/folders/:id', authenticate, authorize('media:delete'), auditLog(
 router.get('/folders', authenticate, mediaController.listFolders);
 
 // Files
-router.post('/files', authenticate, authorize('media:create'), upload.single('file'), mediaController.uploadFile);
+router.post('/files', authenticate, authorize('media:create'), uploadLimiter, upload.single('file'), auditLog('create', 'media-file'), mediaController.uploadFile);
 router.put('/files/:id', authenticate, authorize('media:update'), auditLog('update', 'media-file'), mediaController.updateFile);
 router.delete('/files/:id', authenticate, authorize('media:delete'), auditLog('delete', 'media-file'), mediaController.deleteFile);
 router.post('/files/:id/restore', authenticate, authorize('media:update'), mediaController.restoreFile);

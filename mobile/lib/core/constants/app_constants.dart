@@ -8,9 +8,14 @@ class AppConstants {
   static const String devAndroidBaseUrl = 'http://10.0.2.2:3000/api/v1';
   static const String devDesktopBaseUrl = 'http://localhost:3000/api/v1';
 
+  /// Explicit override for builds/CI: flutter run/build --dart-define=API_URL=...
+  /// Example: --dart-define=API_URL=https://staging.api.example.com/api/v1
+  static const String _envApiBaseUrl = String.fromEnvironment('API_URL');
+
   static bool get _isDevMode => !kReleaseMode;
 
   static String get apiBaseUrl {
+    if (_envApiBaseUrl.isNotEmpty) return _envApiBaseUrl;
     if (!_isDevMode) return prodBaseUrl;
     if (defaultTargetPlatform == TargetPlatform.android)
       return devAndroidBaseUrl;
@@ -42,6 +47,7 @@ class AppConstants {
   static const String userIdKey = 'user_id';
   static const String deviceIdKey = 'device_id';
   static const String devModeKey = 'dev_mode';
+  static const String cachedUserKey = 'cached_user';
 
   static const double audioSkipForward = 30;
   static const double audioSkipBackward = 10;

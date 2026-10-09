@@ -14,6 +14,17 @@ class ApiClient {
   /// on every request. Updated in refreshAccessToken() and cleared on logout.
   String? _cachedAccessToken;
 
+  /// Invoked when the session is definitively dead (server rejected the
+  /// refresh token). Wired by the DI setup to AuthCubit so the UI can route
+  /// the user to the login screen.
+  void Function()? onSessionExpired;
+
+  void _notifySessionExpired() {
+    try {
+      onSessionExpired?.call();
+    } catch (_) {}
+  }
+
   /// Bare Dio (no interceptors) used ONLY for the refresh call itself, so a
   /// failed refresh can never re-enter the refresh interceptor (infinite loop).
   late final Dio _refreshDio;
@@ -90,7 +101,7 @@ class ApiClient {
       ),
     );
 
-     dio.interceptors.addAll([_authInterceptor(), _refreshTokenInterceptor()]);
+    dio.interceptors.addAll([_authInterceptor(), _refreshTokenInterceptor()]);
   }
 
   Future<String?> _safeStorageRead({required String key}) async {
@@ -155,6 +166,7 @@ class ApiClient {
           await _secureStorage.delete(key: AppConstants.refreshTokenKey);
         } catch (_) {}
         _cachedAccessToken = null;
+        _notifySessionExpired();
       }
       throw Exception('Token refresh failed');
     } catch (e) {
@@ -185,9 +197,7 @@ class ApiClient {
         } else {
           String? token;
           try {
-            token = await _secureStorage.read(
-              key: AppConstants.accessTokenKey,
-            );
+            token = await _secureStorage.read(key: AppConstants.accessTokenKey);
           } catch (_) {}
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
@@ -223,6 +233,9 @@ class ApiClient {
               await _secureStorage.delete(key: AppConstants.refreshTokenKey);
             } catch (_) {}
             _cachedAccessToken = null;
+            if (error.requestOptions.headers['Authorization'] != null) {
+              _notifySessionExpired();
+            }
             return handler.reject(error);
           }
 

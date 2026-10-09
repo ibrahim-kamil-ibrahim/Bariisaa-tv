@@ -35,8 +35,21 @@ Future<void> _initializeFirebase() async {
   }
 }
 
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (kDebugMode) debugPrint('Uncaught error: $error\n$stack');
+    return true;
+  };
+
   JustAudioMediaKit.ensureInitialized();
   await setupDependencies();
   getIt<ScreenThemeCubit>().load();
@@ -57,10 +70,20 @@ class BariisaaTvApp extends StatelessWidget {
           if (state is AuthLogoutLoading) {
             context.go(AppRoutes.login);
           }
+          if (state is AuthSessionExpired) {
+            context.go(AppRoutes.login);
+            rootScaffoldMessengerKey.currentState?.showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         },
         child: MaterialApp.router(
           title: 'Bariisaa Tv',
           debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
           theme: AppTheme.lightTheme(),
           darkTheme: AppTheme.darkTheme(),
           themeMode: ThemeMode.system,

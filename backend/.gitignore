@@ -7,3 +7,12 @@ logs
 *.log
 coverage
 .DS_Store
+
+# Local scratch scripts & runtime output (never commit)
+create_ibro.ts
+create_ibro.cjs
+backend.err
+output.txt
+stderr.txt
+stdout.txt
+*.tsbuildinfo

@@ -44,7 +44,7 @@ import {
 } from 'recharts';
 import PageHeader from '../../components/PageHeader';
 import { palette, typography } from '../../theme';
-import api from '../../services/api';
+import api, { BASE_URL } from '../../services/api';
 
 export default function ReportsPage() {
   const queryClient = useQueryClient();
@@ -261,7 +261,7 @@ export default function ReportsPage() {
                   <MenuItem value="csv">CSV</MenuItem>
                   <MenuItem value="json">JSON</MenuItem>
                 </TextField>
-                <Button startIcon={<Download size={16} />} variant="outlined" onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:3000'}/api/v1/report-builder/export/${exportType}?format=${exportFormat}`, '_blank')}>Export</Button>
+                <Button startIcon={<Download size={16} />} variant="outlined" onClick={() => window.open(`${BASE_URL}/api/v1/report-builder/export/${exportType}?format=${exportFormat}`, '_blank')}>Export</Button>
               </Box>
             </CardContent>
           </Card>
