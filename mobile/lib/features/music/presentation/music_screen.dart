@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/shared_widgets.dart';
 import '../../../shared/widgets/content_cards.dart';
-import '../../../shared/widgets/app_background.dart';
+import '../../../features/auth/presentation/auth_guard.dart';
 import '../presentation/music_cubit.dart';
 import '../domain/music_state.dart';
 
@@ -286,6 +286,7 @@ class _MusicScreenState extends State<MusicScreen> {
         coverUrl != null ? AppConstants.resolveUrl(coverUrl) : null;
     final genre = track['genre'] as String?;
     final duration = _formatDuration(track['durationSeconds'] as int? ?? 0);
+    final isLocked = track['isLocked'] as bool? ?? false;
 
     return GestureDetector(
       onTap: () => _openPlayer(context, track, playlist, index),
@@ -345,6 +346,38 @@ class _MusicScreenState extends State<MusicScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (isLocked)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.deepNavy.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.workspace_premium_rounded,
+                              size: 12,
+                              color: AppTheme.gold,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              'PREMIUM',
+                              style: AppStyles.nunito(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.gold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (genre != null && genre.isNotEmpty) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -471,6 +504,7 @@ class _MusicScreenState extends State<MusicScreen> {
     final genre = track['genre'] as String?;
     final duration = _formatDuration(track['durationSeconds'] as int? ?? 0);
     final playCount = track['playCount'] as int? ?? 0;
+    final isLocked = track['isLocked'] as bool? ?? false;
 
     return GestureDetector(
       onTap: () => _openPlayer(context, track, playlist, index),
@@ -481,7 +515,9 @@ class _MusicScreenState extends State<MusicScreen> {
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.skyBlue.withValues(alpha: 0.12),
+            color: isLocked
+                ? AppTheme.gold.withValues(alpha: 0.45)
+                : AppTheme.skyBlue.withValues(alpha: 0.12),
             width: 1,
           ),
           boxShadow: [
@@ -500,7 +536,10 @@ class _MusicScreenState extends State<MusicScreen> {
               child: SizedBox(
                 width: 60,
                 height: 60,
-                child: resolvedCover != null
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    resolvedCover != null
                     ? CachedNetworkImage(
                         imageUrl: resolvedCover,
                         fit: BoxFit.cover,
@@ -531,6 +570,22 @@ class _MusicScreenState extends State<MusicScreen> {
                           color: AppTheme.white,
                         ),
                       ),
+                    if (isLocked)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.deepNavy.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.lock_rounded,
+                            size: 22,
+                            color: AppTheme.gold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -548,6 +603,29 @@ class _MusicScreenState extends State<MusicScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (isLocked) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.workspace_premium_rounded,
+                          size: 12,
+                          color: AppTheme.gold,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'PREMIUM',
+                          style: AppStyles.nunito(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.gold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   if (artist != null && artist.isNotEmpty)
                     Text(
@@ -656,9 +734,11 @@ class _MusicScreenState extends State<MusicScreen> {
     Map<String, dynamic> track,
     List<Map<String, dynamic>> playlist,
     int index,
-  ) {
+  ) async {
     final id = track['id'] as String?;
     if (id == null) return;
+    final signedIn = await requireAuthentication(context);
+    if (!signedIn || !context.mounted) return;
     final isLocked = track['isLocked'] as bool? ?? false;
     if (isLocked) {
       context.push(AppRoutes.paywall);

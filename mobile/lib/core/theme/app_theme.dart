@@ -763,3 +763,7 @@ class AppTheme {
     );
   }
 }
+
+// Memoized themes — building ThemeData is expensive; never rebuild per frame.
+final ThemeData appLightTheme = AppTheme.lightTheme();
+final ThemeData appDarkTheme = AppTheme.darkTheme();

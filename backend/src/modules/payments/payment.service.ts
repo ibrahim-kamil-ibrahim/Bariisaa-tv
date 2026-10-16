@@ -404,3 +404,92 @@ export async function refundPayment(paymentId: string) {
 
   return { payment: updated, message: 'Payment refunded successfully' };
 }
+
+export async function approveManualPayment(paymentId: string, adminNote?: string) {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { subscription: true },
+  });
+  if (!payment) throw new AppError('Payment not found', 404);
+  if (payment.gateway !== 'MANUAL') throw new AppError('This is not a manual payment', 400);
+  if (payment.status !== 'PENDING') throw new AppError('Payment is not pending', 400);
+
+  const metadata = (payment.metadata as any) || {};
+
+  await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: 'COMPLETED',
+        metadata: {
+          ...metadata,
+          approvedAt: new Date().toISOString(),
+          adminNote: adminNote || null,
+        },
+      },
+    }),
+    ...(payment.subscription
+      ? [
+          prisma.subscription.update({
+            where: { id: payment.subscription.id },
+            data: { status: 'ACTIVE' },
+          }),
+        ]
+      : []),
+    ...(payment.couponId
+      ? [
+          prisma.coupon.update({
+            where: { id: payment.couponId },
+            data: { usedCount: { increment: 1 } },
+          }),
+          prisma.couponUsage.create({
+            data: {
+              couponId: payment.couponId,
+              userId: payment.userId,
+              paymentId: payment.id,
+            },
+          }),
+        ]
+      : []),
+  ]);
+
+  const updated = await prisma.payment.findUnique({ where: { id: paymentId } });
+  return { payment: updated, message: 'Manual payment approved — subscription activated' };
+}
+
+export async function rejectManualPayment(paymentId: string, reason?: string) {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { subscription: true },
+  });
+  if (!payment) throw new AppError('Payment not found', 404);
+  if (payment.gateway !== 'MANUAL') throw new AppError('This is not a manual payment', 400);
+  if (payment.status !== 'PENDING') throw new AppError('Payment is not pending', 400);
+
+  const metadata = (payment.metadata as any) || {};
+
+  await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: 'FAILED',
+        metadata: {
+          ...metadata,
+          rejectedAt: new Date().toISOString(),
+          rejectionReason: reason || 'Manual payment rejected',
+        },
+      },
+    }),
+    ...(payment.subscription
+      ? [
+          prisma.subscription.update({
+            where: { id: payment.subscription.id },
+            data: { status: 'CANCELLED' },
+          }),
+        ]
+      : []),
+  ]);
+
+  const updated = await prisma.payment.findUnique({ where: { id: paymentId } });
+  return { payment: updated, message: 'Manual payment rejected' };
+}

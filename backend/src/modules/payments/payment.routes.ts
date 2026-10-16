@@ -24,6 +24,8 @@ router.post('/webhooks/telebirr', paymentController.handleTelebirrCallback);
 
 router.get('/admin/all', authenticate, authorize('payments:read'), paymentController.getAllPayments);
 router.post('/admin/refund', authenticate, authorize('payments:update'), paymentController.refundPaymentHandler);
+router.post('/admin/manual/approve', authenticate, authorize('payments:update'), paymentController.approveManualPaymentHandler);
+router.post('/admin/manual/reject', authenticate, authorize('payments:update'), paymentController.rejectManualPaymentHandler);
 router.get('/', authenticate, paymentController.getPaymentHistory);
 router.get('/:id', authenticate, paymentController.getPaymentById);
 

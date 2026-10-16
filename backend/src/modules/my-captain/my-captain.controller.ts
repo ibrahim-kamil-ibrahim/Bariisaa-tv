@@ -45,9 +45,11 @@ export async function deleteLeaderboardEntry(req: AuthRequest, res: Response, ne
   } catch (error) { next(error); }
 }
 
-export async function listAchievements(_req: AuthRequest, res: Response, next: NextFunction) {
+export async function listAchievements(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const data = await captainService.listAchievements();
+    // super_admin sees hidden achievements too, so the admin panel can manage them.
+    const showAll = (req.userRoles || []).includes('super_admin');
+    const data = await captainService.listAchievements(showAll);
     successResponse(res, data, 'Achievements retrieved');
   } catch (error) { next(error); }
 }

@@ -13,14 +13,21 @@ import {
   Grid,
   Button,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
   ExternalLink,
   RotateCcw,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import api from '../../services/api';
 import PageHeader from '../../components/PageHeader';
@@ -60,6 +67,7 @@ interface PaymentRecord {
   status: string;
   method?: string;
   description?: string;
+  metadata?: Record<string, unknown> | null;
   subscription?: PaymentSubscription | null;
   coupon?: PaymentCoupon | null;
   createdAt: string;
@@ -88,6 +96,11 @@ export default function PaymentsPage() {
   const [limit] = useState(20);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [refundDialog, setRefundDialog] = useState<PaymentRecord | null>(null);
+  const [approveDialog, setApproveDialog] = useState<PaymentRecord | null>(null);
+  const [rejectDialog, setRejectDialog] = useState<PaymentRecord | null>(null);
+  const [approveNote, setApproveNote] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['payments', 'admin', page, limit],
@@ -98,6 +111,26 @@ export default function PaymentsPage() {
   const payments: PaymentRecord[] = data?.payments || [];
   const totalPages = data?.totalPages || data?.pagination?.pages || 1;
 
+  const approveMutation = useMutation({
+    mutationFn: ({ paymentId, note }: { paymentId: string; note?: string }) =>
+      api.post('/payments/admin/manual/approve', { paymentId, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      setApproveDialog(null);
+      setApproveNote('');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: string; reason?: string }) =>
+      api.post('/payments/admin/manual/reject', { paymentId, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      setRejectDialog(null);
+      setRejectReason('');
+    },
+  });
+
   const handleRefund = async () => {
     if (!refundDialog) return;
     try {
@@ -107,6 +140,16 @@ export default function PaymentsPage() {
       console.error('Refund failed:', err);
     }
     setRefundDialog(null);
+  };
+
+  const handleApprove = () => {
+    if (!approveDialog) return;
+    approveMutation.mutate({ paymentId: approveDialog.id, note: approveNote || undefined });
+  };
+
+  const handleReject = () => {
+    if (!rejectDialog) return;
+    rejectMutation.mutate({ paymentId: rejectDialog.id, reason: rejectReason || undefined });
   };
 
   return (
@@ -208,6 +251,28 @@ export default function PaymentsPage() {
                             <ExternalLink size={16} />
                           </IconButton>
                         </Tooltip>
+                        {payment.gateway === 'MANUAL' && payment.status === 'PENDING' && (
+                          <>
+                            <Tooltip title="Approve">
+                              <IconButton
+                                size="small"
+                                sx={{ color: palette.emerald }}
+                                onClick={(e) => { e.stopPropagation(); setApproveDialog(payment); }}
+                              >
+                                <CheckCircle size={16} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Reject">
+                              <IconButton
+                                size="small"
+                                sx={{ color: palette.coral }}
+                                onClick={(e) => { e.stopPropagation(); setRejectDialog(payment); }}
+                              >
+                                <XCircle size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                         {payment.status === 'COMPLETED' && (
                           <Tooltip title="Refund">
                             <IconButton
@@ -257,6 +322,24 @@ export default function PaymentsPage() {
                               <Typography variant="caption" color="text.secondary" fontWeight={600}>Updated</Typography>
                               <Typography variant="body2">{formatDateTime(payment.updatedAt)}</Typography>
                             </Grid>
+                            {payment.gateway === 'MANUAL' && payment.metadata && (
+                              <>
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>Channel</Typography>
+                                  <Typography variant="body2">{String(payment.metadata.channel || 'N/A')}</Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>Reference</Typography>
+                                  <Typography variant="body2" fontFamily={typography.mono} fontSize={12}>
+                                    {String(payment.metadata.reference || 'Not provided')}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>Account Name</Typography>
+                                  <Typography variant="body2">{String(payment.metadata.accountName || 'N/A')}</Typography>
+                                </Grid>
+                              </>
+                            )}
                           </Grid>
                         </Box>
                       </Collapse>
@@ -278,6 +361,69 @@ export default function PaymentsPage() {
         onCancel={() => setRefundDialog(null)}
         destructive
       />
+
+      <Dialog open={!!approveDialog} onClose={() => setApproveDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Approve Manual Payment</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Approving will mark this payment as completed and activate the subscription for{' '}
+            <strong>{approveDialog?.user?.name || 'this user'}</strong> ({formatAmount(approveDialog?.amount || 0, approveDialog?.currency || 'USD')}).
+          </Typography>
+          {approveDialog?.metadata && (
+            <Box sx={{ mb: 2, p: 1.5, borderRadius: 1, bgcolor: palette.warmGrayLight }}>
+              <Typography variant="caption" fontWeight={600}>Channel: {String(approveDialog.metadata.channel || 'N/A')}</Typography>
+              <Typography variant="caption" display="block">Reference: {String(approveDialog.metadata.reference || 'Not provided')}</Typography>
+              <Typography variant="caption" display="block">Account: {String(approveDialog.metadata.accountName || 'N/A')}</Typography>
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            label="Admin note (optional)"
+            value={approveNote}
+            onChange={(e) => setApproveNote(e.target.value)}
+            margin="dense"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setApproveDialog(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button
+            onClick={handleApprove}
+            variant="contained"
+            disabled={approveMutation.isPending}
+            sx={{ textTransform: 'none', bgcolor: palette.emerald, '&:hover': { bgcolor: '#047857' } }}
+          >
+            {approveMutation.isPending ? 'Approving…' : 'Approve & Activate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!rejectDialog} onClose={() => setRejectDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Reject Manual Payment</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Rejecting will mark this payment as failed and cancel the pending subscription for{' '}
+            <strong>{rejectDialog?.user?.name || 'this user'}</strong>.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Rejection reason (optional)"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            margin="dense"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRejectDialog(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button
+            onClick={handleReject}
+            variant="contained"
+            disabled={rejectMutation.isPending}
+            sx={{ textTransform: 'none', bgcolor: palette.coral, '&:hover': { bgcolor: '#d4553a' } }}
+          >
+            {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

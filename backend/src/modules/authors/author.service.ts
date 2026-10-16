@@ -6,7 +6,7 @@ export async function createAuthor(data: { name: string; bio?: string; photoUrl?
   const author = await prisma.author.create({
     data,
     include: {
-      _count: { select: { books: true } },
+      _count: { select: { books: true, musicTracks: true, stories: true } },
     },
   });
 
@@ -21,7 +21,7 @@ export async function updateAuthor(id: string, data: { name?: string; bio?: stri
     where: { id },
     data,
     include: {
-      _count: { select: { books: true } },
+      _count: { select: { books: true, musicTracks: true, stories: true } },
     },
   });
 
@@ -66,36 +66,66 @@ export async function getAuthorById(id: string, page = 1, limit = 20) {
   const author = await prisma.author.findUnique({
     where: { id },
     include: {
-      _count: { select: { books: true } },
+      _count: { select: { books: true, musicTracks: true, stories: true } },
     },
   });
 
   if (!author) throw new AppError('Author not found', 404);
 
-  const books = await prisma.book.findMany({
-    where: {
-      authors: { some: { authorId: id } },
-      status: 'PUBLISHED',
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      title: true,
-      coverUrl: true,
-      avgRating: true,
-      ratingCount: true,
-      publishDate: true,
-    },
-  });
+  const bookWhere = {
+    authors: { some: { authorId: id } },
+    status: 'PUBLISHED' as const,
+  };
 
-  const totalBooks = await prisma.book.count({
-    where: {
-      authors: { some: { authorId: id } },
-      status: 'PUBLISHED',
-    },
-  });
+  const [books, totalBooks, musicTracks, totalMusicTracks, stories, totalStories] = await Promise.all([
+    prisma.book.findMany({
+      where: bookWhere,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        coverUrl: true,
+        avgRating: true,
+        ratingCount: true,
+        publishDate: true,
+      },
+    }),
+    prisma.book.count({ where: bookWhere }),
+    prisma.musicTrack.findMany({
+      where: { artistId: id },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        coverUrl: true,
+        durationSeconds: true,
+        genre: true,
+        playCount: true,
+        status: true,
+      },
+    }),
+    prisma.musicTrack.count({ where: { artistId: id } }),
+    prisma.story.findMany({
+      where: { authorId: id },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        coverUrl: true,
+        category: true,
+        viewCount: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+    prisma.story.count({ where: { authorId: id } }),
+  ]);
 
   return {
     ...author,
@@ -105,6 +135,20 @@ export async function getAuthorById(id: string, page = 1, limit = 20) {
       limit,
       total: totalBooks,
       totalPages: Math.ceil(totalBooks / limit),
+    },
+    musicTracks,
+    musicMeta: {
+      page,
+      limit,
+      total: totalMusicTracks,
+      totalPages: Math.ceil(totalMusicTracks / limit),
+    },
+    stories,
+    storiesMeta: {
+      page,
+      limit,
+      total: totalStories,
+      totalPages: Math.ceil(totalStories / limit),
     },
   };
 }
@@ -123,7 +167,7 @@ export async function listAuthors(page: number, limit: number, search?: string) 
       take: limit,
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { books: true } },
+        _count: { select: { books: true, musicTracks: true, stories: true } },
       },
     }),
     prisma.author.count({ where }),

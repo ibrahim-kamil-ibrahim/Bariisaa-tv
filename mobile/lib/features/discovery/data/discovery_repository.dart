@@ -41,10 +41,7 @@ class DiscoveryRepository {
       if (language != null) params['language'] = language;
       final response = await _apiClient.get('/books', queryParameters: params);
       final data = response.data['data'];
-      if (data is List)
-        return data
-            .map((e) => BookModel.fromJson(e as Map<String, dynamic>))
-            .toList();
+      if (data is List) return await compute(_decodeBooks, data);
       return [];
     } catch (e) {
       rethrow;
@@ -125,10 +122,7 @@ class DiscoveryRepository {
         queryParameters: {'limit': limit},
       );
       final data = res.data['data'];
-      if (data is List)
-        return data
-            .map((e) => BookModel.fromJson(e as Map<String, dynamic>))
-            .toList();
+      if (data is List) return await compute(_decodeBooks, data);
       return [];
     } catch (e) {
       rethrow;

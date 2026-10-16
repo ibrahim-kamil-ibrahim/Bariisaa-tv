@@ -66,17 +66,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             if (authState is AuthAuthenticated) {
               return BlocBuilder<ProfileCubit, ProfileState>(
                 builder: (context, state) {
-                  if (state is ProfileLoading) {
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: const [
-                        ShimmerListTile(),
-                        SizedBox(height: 16),
-                        ShimmerListTile(),
-                        ShimmerListTile(),
-                        ShimmerListTile(),
-                      ],
-                    );
+                  if (state is ProfileLoading || state is ProfileInitial) {
+                    return const _ProfileShimmer();
                   }
                   if (state is ProfileError) {
                     return FunErrorState(
@@ -114,27 +105,26 @@ class _ProfileScreenState extends State<ProfileScreen>
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.white,
-                border: Border.all(color: AppTheme.skyBlue, width: 3),
+                gradient: const LinearGradient(
+                  colors: [AppTheme.deepPurple, AppTheme.skyBlue],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.skyBlue.withValues(alpha: 0.2),
-                    blurRadius: 20,
+                    color: AppTheme.skyBlue.withValues(alpha: 0.35),
+                    blurRadius: 24,
                     spreadRadius: 2,
                   ),
                 ],
               ),
               child: const Center(
-                child: Icon(
-                  Icons.person_outline_rounded,
-                  size: 56,
-                  color: AppTheme.skyBlue,
-                ),
+                child: Text('👋', style: TextStyle(fontSize: 52)),
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'Guest',
+              'Hello, Guest!',
               style: AppStyles.baloo2(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
@@ -161,20 +151,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppTheme.gold, Color(0xFFFFC93D)],
+                      colors: [AppTheme.gold, AppTheme.softAmber],
                     ),
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.gold.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: AppTheme.gold.withValues(alpha: 0.4),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
                   child: Center(
                     child: Text(
-                      'Create Account',
+                      '✨  Create Account',
                       style: AppStyles.nunito(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -196,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     color: AppTheme.white,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: AppTheme.darkNavy.withValues(alpha: 0.2),
+                      color: AppTheme.skyBlue.withValues(alpha: 0.4),
                       width: 1.5,
                     ),
                   ),
@@ -225,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final user = state.user;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
         _buildIdentityCard(context, user),
         const SizedBox(height: 16),
@@ -252,11 +242,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.white,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           AppTheme.clayShadow(
-            color: AppTheme.deepNavy.withValues(alpha: 0.12),
+            color: AppTheme.deepPurple.withValues(alpha: 0.3),
             blur: 24,
             dy: 8,
             spread: -4,
@@ -267,88 +256,124 @@ class _ProfileScreenState extends State<ProfileScreen>
         borderRadius: BorderRadius.circular(28),
         child: Column(
           children: [
-            // Header with gradient
+            // Header with brand gradient (purple → blue)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.darkNavy, AppTheme.deepNavy],
+                  colors: [AppTheme.deepPurple, AppTheme.skyBlue],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
               child: Column(
                 children: [
-                  // Avatar
+                  // Avatar with edit badge
                   ScaleTransition(
                     scale: _avatarScale,
                     child: GestureDetector(
                       onTap: () =>
                           context.read<ProfileCubit>().uploadAvatar(),
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppTheme.gold,
-                            width: 3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  AppTheme.gold.withValues(alpha: 0.4),
-                              blurRadius: 20,
-                              spreadRadius: 2,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 116,
+                            height: 116,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.gold,
+                                width: 3.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppTheme.gold.withValues(alpha: 0.45),
+                                  blurRadius: 22,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: resolvedAvatar != null
-                              ? CachedNetworkImage(
-                                  imageUrl: resolvedAvatar,
-                                  width: 114,
-                                  height: 114,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 228,
-                                  memCacheHeight: 228,
-                                  placeholder: (_, _) => Container(
-                                    color: AppTheme.darkNavy,
-                                    child: const Icon(
-                                      Icons.person_rounded,
-                                      size: 56,
-                                      color: AppTheme.gold,
-                                    ),
-                                  ),
-                                  errorWidget: (_, _, _) => Container(
-                                    color: AppTheme.darkNavy,
-                                    child: Center(
-                                      child: Text(
-                                        initial,
-                                        style: AppStyles.baloo2(
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.gold,
+                            child: ClipOval(
+                              child: resolvedAvatar != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: resolvedAvatar,
+                                      width: 110,
+                                      height: 110,
+                                      fit: BoxFit.cover,
+                                      memCacheWidth: 228,
+                                      memCacheHeight: 228,
+                                      placeholder: (_, _) => Container(
+                                        color: AppTheme.deepNavy
+                                            .withValues(alpha: 0.35),
+                                        child: const Icon(
+                                          Icons.person_rounded,
+                                          size: 54,
+                                          color: AppTheme.white,
+                                        ),
+                                      ),
+                                      errorWidget: (_, _, _) => Container(
+                                        color: AppTheme.deepNavy
+                                            .withValues(alpha: 0.35),
+                                        child: Center(
+                                          child: Text(
+                                            initial,
+                                            style: AppStyles.baloo2(
+                                              fontSize: 46,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.gold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: AppTheme.deepNavy
+                                          .withValues(alpha: 0.35),
+                                      child: Center(
+                                        child: Text(
+                                          initial,
+                                          style: AppStyles.baloo2(
+                                            fontSize: 46,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppTheme.gold,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                )
-                              : Container(
-                                  color: AppTheme.darkNavy,
-                                  child: Center(
-                                    child: Text(
-                                      initial,
-                                      style: AppStyles.baloo2(
-                                        fontSize: 48,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.gold,
-                                      ),
-                                    ),
-                                  ),
+                            ),
+                          ),
+                          // Camera edit badge
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppTheme.gold,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppTheme.white,
+                                  width: 2.5,
                                 ),
-                        ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 16,
+                                color: AppTheme.deepNavy,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -371,42 +396,50 @@ class _ProfileScreenState extends State<ProfileScreen>
                       style: AppStyles.nunito(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.white.withValues(alpha: 0.6),
+                        color: Colors.white.withValues(alpha: 0.75),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                   if (hasEmail || hasPhone) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          hasEmail
-                              ? Icons.email_rounded
-                              : Icons.phone_rounded,
-                          size: 14,
-                          color:
-                              AppTheme.white.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            (user.email?.isNotEmpty ?? false)
-                                ? user.email!
-                                : (user.phone ?? ''),
-                            style: AppStyles.nunito(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.white
-                                  .withValues(alpha: 0.8),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasEmail
+                                ? Icons.email_rounded
+                                : Icons.phone_rounded,
+                            size: 13,
+                            color: Colors.white.withValues(alpha: 0.85),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              (user.email?.isNotEmpty ?? false)
+                                  ? user.email!
+                                  : (user.phone ?? ''),
+                              style: AppStyles.nunito(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -439,14 +472,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ],
               ),
             ),
-            // Stat tiles
+            // Stat tiles — colorful gradient cards
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               child: Row(
                 children: [
                   Expanded(
                     child: _statTile(
-                      icon: Icons.menu_book_rounded,
+                      emoji: '📚',
                       label: 'Books',
                       color: AppTheme.skyBlue,
                       onTap: () =>
@@ -456,7 +489,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: _statTile(
-                      icon: Icons.favorite_rounded,
+                      emoji: '❤️',
                       label: 'Favorites',
                       color: AppTheme.playfulRed,
                       onTap: () => context.push(AppRoutes.favorites),
@@ -465,7 +498,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   const SizedBox(width: 10),
                   Expanded(
                     child: _statTile(
-                      icon: Icons.headphones_rounded,
+                      emoji: '🎧',
                       label: 'Listening',
                       color: AppTheme.mintGreen,
                       onTap: () => context
@@ -482,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _statTile({
-    required IconData icon,
+    required String emoji,
     required String label,
     required Color color,
     required VoidCallback onTap,
@@ -492,22 +525,29 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          gradient: LinearGradient(
+            colors: [
+              color.withValues(alpha: 0.18),
+              color.withValues(alpha: 0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: color.withValues(alpha: 0.15),
+            color: color.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 28, color: color),
+            Text(emoji, style: const TextStyle(fontSize: 26)),
             const SizedBox(height: 6),
             Text(
               label,
               style: AppStyles.nunito(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: AppTheme.darkNavy,
               ),
             ),
@@ -525,7 +565,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: color.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -559,26 +599,26 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  // ── Subscription Card ──────────────────────────────────────────
+  // ── Subscription Card — gold gradient hero ─────────────────────
 
   Widget _buildSubscriptionCard(BuildContext context, ProfileLoaded state) {
     final sub = state.subscription!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.gold.withValues(alpha: 0.2),
-          width: 1,
+        gradient: const LinearGradient(
+          colors: [AppTheme.gold, AppTheme.softAmber],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          AppTheme.clayShadow(
-            color: AppTheme.deepNavy.withValues(alpha: 0.08),
-            blur: 16,
-            dy: 6,
-            spread: -3,
-          ).first,
+          BoxShadow(
+            color: AppTheme.gold.withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
         ],
       ),
       child: Row(
@@ -587,17 +627,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.gold, Color(0xFFFFC93D)],
-              ),
+              color: Colors.white.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.gold.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
             ),
             child: const Icon(
               Icons.workspace_premium_rounded,
@@ -615,7 +646,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   style: AppStyles.baloo2(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.darkNavy,
+                    color: AppTheme.deepNavy,
                   ),
                 ),
                 Text(
@@ -623,7 +654,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   style: AppStyles.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.charcoal,
+                    color: AppTheme.deepNavy.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -637,7 +668,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 vertical: 8,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.12),
+                color: AppTheme.deepNavy,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -802,8 +833,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               color: AppTheme.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: AppTheme.playfulRed.withValues(alpha: 0.2),
-                width: 1,
+                color: AppTheme.playfulRed.withValues(alpha: 0.25),
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -840,10 +871,15 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: item.color.withValues(alpha: 0.1),
+                gradient: LinearGradient(
+                  colors: [
+                    item.color.withValues(alpha: 0.2),
+                    item.color.withValues(alpha: 0.1),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(item.icon, size: 20, color: item.color),
@@ -965,4 +1001,82 @@ class _MenuItem {
   final Color color;
   final VoidCallback onTap;
   _MenuItem(this.icon, this.label, this.color, this.onTap);
+}
+
+// ═══════════════════════════════════════════════
+//  SHIMMER LOADING SKELETON
+// ═══════════════════════════════════════════════
+
+class _ProfileShimmer extends StatefulWidget {
+  const _ProfileShimmer();
+
+  @override
+  State<_ProfileShimmer> createState() => _ProfileShimmerState();
+}
+
+class _ProfileShimmerState extends State<_ProfileShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _shimmerBox(height: 320, radius: 28, t: t),
+            const SizedBox(height: 16),
+            _shimmerBox(height: 84, radius: 24, t: t),
+            const SizedBox(height: 24),
+            _shimmerBox(height: 28, width: 120, radius: 8, t: t),
+            const SizedBox(height: 12),
+            _shimmerBox(height: 320, radius: 24, t: t),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox({
+    double? width,
+    required double height,
+    required double radius,
+    required double t,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1 + 2 * t, -1),
+          end: Alignment(-1 + 2 * t + 0.8, 1),
+          colors: [
+            AppTheme.white,
+            AppTheme.white.withValues(alpha: 0.55),
+            AppTheme.white,
+          ],
+          stops: const [0.35, 0.5, 0.65],
+        ),
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: AppTheme.skyBlue.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
 }

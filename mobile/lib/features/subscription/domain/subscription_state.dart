@@ -60,6 +60,35 @@ class SubscriptionError extends SubscriptionState {
   List<Object?> get props => [message, isLocked, accessTier];
 }
 
+/// Emitted after POST /subscriptions/subscribe succeeds.
+/// Contains paymentUrl (for sheet/Stripe) or manual instructions.
+class PaymentInitiated extends SubscriptionState {
+  final String paymentId;
+  final String subscriptionId;
+  final String gateway;
+  final double amount;
+  final String currency;
+  final String? paymentUrl;
+  final Map<String, dynamic>? checkoutInfo;
+
+  const PaymentInitiated({
+    required this.paymentId,
+    required this.subscriptionId,
+    required this.gateway,
+    required this.amount,
+    required this.currency,
+    this.paymentUrl,
+    this.checkoutInfo,
+  }) : super(isLocked: false);
+
+  bool get isManual => gateway == 'MANUAL';
+  bool get needsWebRedirect => paymentUrl != null && paymentUrl!.isNotEmpty;
+
+  @override
+  List<Object?> get props =>
+      [paymentId, subscriptionId, gateway, amount, currency, paymentUrl, checkoutInfo, isLocked, accessTier];
+}
+
 class NoSubscription extends SubscriptionState {
   const NoSubscription();
 }

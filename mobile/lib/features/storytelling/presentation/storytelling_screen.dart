@@ -7,6 +7,7 @@ import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/shared_widgets.dart';
+import '../../../features/auth/presentation/auth_guard.dart';
 import '../presentation/storytelling_cubit.dart';
 import '../domain/storytelling_state.dart';
 
@@ -18,13 +19,15 @@ class StorytellingScreen extends StatefulWidget {
 }
 
 class _StorytellingScreenState extends State<StorytellingScreen> {
+  String? _selectedCategory;
+
   @override
   void initState() {
     super.initState();
     context.read<StorytellingCubit>().loadStories();
   }
 
-  String? _s(dynamic v) => v is String ? v : null;
+  String? _s(dynamic v) => v is String && v.isNotEmpty ? v : null;
   int? _i(dynamic v) => v is int ? v : (v is num ? v.toInt() : null);
 
   @override
@@ -35,141 +38,69 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
         title: 'Storytelling',
       ),
       body: BlocBuilder<StorytellingCubit, StorytellingState>(
-          builder: (context, state) {
-            if (state is StorytellingLoading) {
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: 4,
-                separatorBuilder: (_, _) => const SizedBox(height: 14),
-                itemBuilder: (_, _) => Container(
-                  height: 220,
-                  decoration: BoxDecoration(
-                    color: AppTheme.white,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
+        builder: (context, state) {
+          if (state is StorytellingLoading || state is StorytellingInitial) {
+            return const _StoryShimmerList();
+          }
+          if (state is StorytellingError) {
+            return FunErrorState(
+              message: state.message,
+              onRetry: () => context.read<StorytellingCubit>().loadStories(),
+            );
+          }
+          if (state is StorytellingLoaded) {
+            if (state.stories.isEmpty && state.categories.isEmpty) {
+              return const FunEmptyState(
+                emoji: '📖',
+                title: 'No Stories Yet',
+                subtitle: 'Stories will appear here once added.',
               );
             }
-            if (state is StorytellingError) {
-              return FunErrorState(
-                message: state.message,
-                onRetry: () => context.read<StorytellingCubit>().loadStories(),
-              );
-            }
-            if (state is StorytellingLoaded) {
-              if (state.stories.isEmpty && state.categories.isEmpty) {
-                return const FunEmptyState(
-                  emoji: '📖',
-                  title: 'No Stories Yet',
-                  subtitle: 'Stories will appear here once added.',
-                );
-              }
-              return _buildContent(state);
-            }
-            return const SizedBox.shrink();
-          },
+            return _buildContent(state);
+          }
+          return const SizedBox.shrink();
+        },
       ),
       bottomNavigationBar: const MainBottomNav(currentIndex: 3),
     );
   }
 
   Widget _buildContent(StorytellingLoaded state) {
-    final stories = state.stories;
-    final premiumCount = stories.where((s) => s['isLocked'] == true).length;
+    final allStories = state.stories;
+    final categories = state.categories;
+    final premiumCount = allStories.where((s) => s['isLocked'] == true).length;
+
+    final stories = _selectedCategory == null
+        ? allStories
+        : allStories
+            .where((s) => _s(s['category']) == _selectedCategory)
+            .toList();
+
     return RefreshIndicator(
       onRefresh: () async => context.read<StorytellingCubit>().loadStories(),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // ── Category chips ──
-          if (state.categories.isNotEmpty)
+          // ── Hero header ──
+          SliverToBoxAdapter(child: _heroHeader(stories.length, premiumCount)),
+
+          // ── Category filter chips ──
+          if (categories.isNotEmpty)
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 40,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: state.categories.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final cat = state.categories[index];
-                    final name = cat['name'] as String? ?? '';
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardPurple.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppTheme.lightPurple.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Text(
-                        name,
-                        style: AppStyles.nunito(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.darkNavy,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+              child: _categoryChips(categories),
             ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-          // ── Premium content count (top right) ──
-          if (premiumCount > 0)
-            SliverToBoxAdapter(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.playfulRed.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 16,
-                        color: AppTheme.playfulRed,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$premiumCount premium',
-                        style: AppStyles.nunito(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.playfulRed,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-          // ── Video list — one card per row ──
+          // ── Story cards ──
           if (stories.isEmpty)
             const SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 80),
+                padding: EdgeInsets.symmetric(vertical: 60),
                 child: FunEmptyState(
-                  emoji: '📖',
-                  title: 'No Stories Yet',
-                  subtitle: 'Stories will appear here once added.',
+                  emoji: '🔍',
+                  title: 'No Stories Here',
+                  subtitle: 'Try another category.',
                 ),
               ),
             )
@@ -178,7 +109,7 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => _storytellingVideoCard(
+                  (context, index) => _storyCard(
                     context,
                     stories[index],
                     index,
@@ -194,9 +125,183 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     );
   }
 
-  /// Video card: cover image with play overlay + title + meta,
-  /// one story per row in a vertical column.
-  Widget _storytellingVideoCard(
+  // ═══════════════════════════════════════════════
+  //  HERO HEADER
+  // ═══════════════════════════════════════════════
+
+  Widget _heroHeader(int storyCount, int premiumCount) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.deepPurple, AppTheme.skyBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepPurple.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Center(
+              child: Text('📖', style: TextStyle(fontSize: 30)),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Story Time!',
+                  style: AppStyles.baloo2(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.white,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  premiumCount > 0
+                      ? '$storyCount stories · $premiumCount premium'
+                      : '$storyCount magical stories',
+                  style: AppStyles.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (premiumCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.gold,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 14,
+                    color: AppTheme.deepNavy,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$premiumCount',
+                    style: AppStyles.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.deepNavy,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  //  CATEGORY FILTER CHIPS
+  // ═══════════════════════════════════════════════
+
+  Widget _categoryChips(List<Map<String, dynamic>> categories) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+        itemCount: categories.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _chip(
+              label: 'All',
+              selected: _selectedCategory == null,
+              onTap: () => setState(() => _selectedCategory = null),
+            );
+          }
+          final cat = categories[index - 1];
+          final name = _s(cat['name']) ?? '';
+          if (name.isEmpty) return const SizedBox.shrink();
+          return _chip(
+            label: name,
+            selected: _selectedCategory == name,
+            onTap: () => setState(() => _selectedCategory = name),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.skyBlue : AppTheme.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? AppTheme.skyBlue
+                : AppTheme.skyBlue.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.skyBlue.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: AppStyles.nunito(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: selected ? AppTheme.white : AppTheme.darkNavy,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════
+  //  STORY CARD
+  // ═══════════════════════════════════════════════
+
+  Widget _storyCard(
     BuildContext context,
     Map<String, dynamic> story,
     int index,
@@ -211,24 +316,27 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     final isLocked = story['isLocked'] == true;
 
     return GestureDetector(
-      onTap: isLocked
-          ? () => _showUnlockDialog(context, story)
-          : id == null
-              ? null
-              : () => context.push('${AppRoutes.storytelling}/$id'),
+      onTap: () async {
+        final signedIn = await requireAuthentication(context);
+        if (!signedIn || !context.mounted) return;
+        if (isLocked) {
+          if (!context.mounted) return;
+          _showUnlockDialog(context, story);
+          return;
+        }
+        if (id == null) return;
+        if (!context.mounted) return;
+        context.push('${AppRoutes.storytelling}/$id');
+      },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: AppTheme.offWhite,
+          color: AppTheme.white,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: AppTheme.skyBlue.withValues(alpha: 0.15),
-            width: 1,
-          ),
           boxShadow: [
             AppTheme.clayShadow(
-              color: AppTheme.deepNavy.withValues(alpha: 0.1),
-              blur: 20,
+              color: AppTheme.deepNavy.withValues(alpha: 0.12),
+              blur: 18,
               dy: 6,
               spread: -3,
             ).first,
@@ -245,11 +353,11 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
                       imageUrl: resolvedCover,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      height: 220,
+                      height: 210,
                       memCacheWidth: 600,
                       memCacheHeight: 440,
-                      placeholder: (_, __) => _videoPlaceholder(),
-                      errorWidget: (_, __, ___) => _videoPlaceholder(),
+                      placeholder: (_, _) => _videoPlaceholder(),
+                      errorWidget: (_, _, _) => _videoPlaceholder(),
                     )
                   : _videoPlaceholder(),
 
@@ -258,43 +366,116 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
                 left: 0,
                 right: 0,
                 top: 0,
-                bottom: 56,
+                bottom: 0,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.0),
-                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.05),
+                        Colors.black.withValues(alpha: 0.05),
+                        Colors.black.withValues(alpha: 0.65),
                       ],
-                      stops: const [0.4, 1.0],
+                      stops: const [0.0, 0.45, 1.0],
                     ),
                   ),
                 ),
               ),
 
-              // Play button overlay
-              Positioned(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppTheme.gold.withValues(alpha: 0.9),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.gold.withValues(alpha: 0.5),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
+              // Duration chip (top-right)
+              if (duration != null && duration > 0)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.schedule_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDuration(duration),
+                          style: AppStyles.nunito(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Premium lock badge (top-left)
+              if (isLocked)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.gold, AppTheme.softAmber],
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.lock_rounded,
+                          size: 13,
+                          color: AppTheme.deepNavy,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Premium',
+                          style: AppStyles.nunito(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.deepNavy,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.play_arrow_rounded,
-                    size: 30,
-                    color: AppTheme.deepNavy,
-                  ),
+                ),
+
+              // Play button
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.95),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.gold.withValues(alpha: 0.5),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 32,
+                  color: AppTheme.deepNavy,
                 ),
               ),
 
@@ -307,26 +488,6 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (isLocked)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.deepNavy.withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          '🔒 Premium',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.gold,
-                          ),
-                        ),
-                      ),
-                    if (isLocked) const SizedBox(height: 4),
                     Text(
                       title,
                       style: AppStyles.baloo2(
@@ -338,52 +499,27 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (category != null && category.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              category,
-                              style: AppStyles.nunito(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.white,
-                              ),
-                            ),
+                    if (category != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          category,
+                          style: AppStyles.nunito(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.white,
                           ),
-                          const SizedBox(width: 6),
-                        ],
-                        if (duration != null && duration > 0)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.schedule_rounded,
-                                size: 14,
-                                color: Colors.white70,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                _formatDuration(duration),
-                                style: AppStyles.nunito(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -394,7 +530,10 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     );
   }
 
-  /// Show inline unlock dialog for locked stories.
+  // ═══════════════════════════════════════════════
+  //  UNLOCK SHEET
+  // ═══════════════════════════════════════════════
+
   void _showUnlockDialog(BuildContext context, Map<String, dynamic> story) {
     final title = _s(story['title']) ?? 'This story';
     showModalBottomSheet(
@@ -424,10 +563,18 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  size: 28,
-                  color: AppTheme.playfulRed,
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 28,
+                    color: AppTheme.gold,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -498,10 +645,10 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
   Widget _videoPlaceholder() {
     return Container(
       width: double.infinity,
-      height: 220,
+      height: 210,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.sunnyYellow, AppTheme.skyBlue],
+          colors: [AppTheme.deepPurple, AppTheme.skyBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -521,5 +668,102 @@ class _StorytellingScreenState extends State<StorytellingScreen> {
     final m = seconds ~/ 60;
     final s = seconds % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  SHIMMER LOADING SKELETON
+// ═══════════════════════════════════════════════
+
+class _StoryShimmerList extends StatefulWidget {
+  const _StoryShimmerList();
+
+  @override
+  State<_StoryShimmerList> createState() => _StoryShimmerListState();
+}
+
+class _StoryShimmerListState extends State<_StoryShimmerList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            _shimmerBox(height: 100, radius: 24, t: t),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, _) => _shimmerBox(
+                  width: 80,
+                  height: 40,
+                  radius: 999,
+                  t: t,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(
+              3,
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _shimmerBox(height: 210, radius: 24, t: t),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox({
+    double? width,
+    required double height,
+    required double radius,
+    required double t,
+  }) {
+    // Sweep a soft highlight across the skeleton as t goes 0→1.
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1 + 2 * t, -1),
+          end: Alignment(-1 + 2 * t + 0.8, 1),
+          colors: [
+            AppTheme.white,
+            AppTheme.white.withValues(alpha: 0.55),
+            AppTheme.white,
+          ],
+          stops: const [0.35, 0.5, 0.65],
+        ),
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: AppTheme.skyBlue.withValues(alpha: 0.08),
+        ),
+      ),
+    );
   }
 }

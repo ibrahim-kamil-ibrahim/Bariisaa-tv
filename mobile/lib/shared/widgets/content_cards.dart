@@ -42,9 +42,15 @@ class ContentCover extends StatelessWidget {
     this.memCacheHeight,
   });
 
+  /// Default decode size for card covers — prevents full-res decode of
+  /// 2000px+ server images into ~300px card slots.
+  static const double _defaultDecodeWidth = 360;
+
   @override
   Widget build(BuildContext context) {
     final hasImage = url != null && url!.trim().isNotEmpty;
+    final decodeW = (memCacheWidth ?? _defaultDecodeWidth).toInt();
+    final decodeH = memCacheHeight?.toInt();
     return ClipRRect(
       borderRadius: radius,
       child: Stack(
@@ -63,11 +69,10 @@ class ContentCover extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: url!,
               fit: BoxFit.cover,
-              memCacheWidth: memCacheWidth?.toInt(),
-              memCacheHeight: memCacheHeight?.toInt(),
-              maxWidthDiskCache: (memCacheWidth != null
-                  ? (memCacheWidth! * 1.5).toInt()
-                  : null),
+              memCacheWidth: decodeW,
+              memCacheHeight: decodeH,
+              maxWidthDiskCache: (decodeW * 1.5).toInt(),
+              maxHeightDiskCache: decodeH != null ? (decodeH * 1.5).toInt() : null,
               fadeInDuration: Duration.zero,
               fadeOutDuration: Duration.zero,
               placeholder: (_, _) => const DecoratedBox(

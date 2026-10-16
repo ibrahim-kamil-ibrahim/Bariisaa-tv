@@ -358,18 +358,18 @@ class AuthRepository {
       debugPrint('  userId: ${userId ?? 'MISSING'}');
     }
 
-    final futures = <Future<void>>[];
-    if (accessToken != null && accessToken.isNotEmpty) {
-      futures.add(_storage.setAccessToken(accessToken));
-    }
+    // Write sequentially: concurrent flutter_secure_storage writes race on
+    // Android and a lost refresh-token write leaves the previously-rotated
+    // (revoked) token in storage, which triggers "reuse detected" and kills
+    // every session on the next refresh.
     if (refreshToken != null && refreshToken.isNotEmpty) {
-      futures.add(_storage.setRefreshToken(refreshToken));
+      await _storage.setRefreshToken(refreshToken);
+    }
+    if (accessToken != null && accessToken.isNotEmpty) {
+      await _storage.setAccessToken(accessToken);
     }
     if (userId != null && userId.isNotEmpty) {
-      futures.add(_storage.setUserId(userId));
-    }
-    if (futures.isNotEmpty) {
-      await Future.wait(futures);
+      await _storage.setUserId(userId);
     }
 
     final user = data['user'];

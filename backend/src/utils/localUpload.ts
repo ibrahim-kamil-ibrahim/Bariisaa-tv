@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { env } from '../config/environment';
 
-const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+export const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 
 async function ensureDir(dir: string) {
   try {

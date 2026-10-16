@@ -24,7 +24,7 @@ import { Author, Category, PdfFile } from '../../types';
 import FileUpload, { UploadFileEntry } from '../../components/FileUpload';
 import AccessTierFields, { AccessTierValue, validateAccessTier } from '../../components/AccessTierFields';
 
-const MAX_COVER_SIZE = 10 * 1024 * 1024;
+const MAX_COVER_SIZE = 500 * 1024; // 500 KB (backend rejects >500 KB)
 const MAX_EBOOK_SIZE = 100 * 1024 * 1024;
 
 const bookSchema = z.object({
@@ -120,10 +120,10 @@ export default function BookFormPage() {
       if (bookData.coverUrl) {
         setCoverFiles([{
           id: 'existing-cover',
-          file: new File([], bookData.coverUrl),
+          file: new File([], 'existing-cover'),
           progress: 100,
           status: 'done',
-          previewUrl: bookData.coverUrl.startsWith('http') ? bookData.coverUrl : `${api.defaults.baseURL}/files/${bookData.coverUrl}`,
+          previewUrl: bookData.coverUrl,
         }]);
       }
       if (bookData.pdfFiles) setExistingPdf(bookData.pdfFiles);
@@ -176,6 +176,7 @@ export default function BookFormPage() {
 
   const onSubmit = async (data: BookFormData) => {
     setSubmitError('');
+    setUploadProgress(null);
 
     const tierError = validateAccessTier(accessTier, planCount);
     if (tierError) {
@@ -398,11 +399,40 @@ export default function BookFormPage() {
               </Grid>
 
               <Grid item xs={12} sm={4}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {coverFiles.find(f => f.id !== 'existing-cover')?.previewUrl && (
+                    <Box
+                      sx={{
+                        width: '100%', height: 200, borderRadius: 1,
+                        overflow: 'hidden', position: 'relative', bgcolor: 'grey.100'
+                      }}
+                    >
+                      <img
+                        src={coverFiles.find(f => f.id !== 'existing-cover')!.previewUrl!}
+                        alt="Cover preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <Box sx={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0, p: 1,
+                        bgcolor: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.7rem'
+                      }}>
+                        <Typography variant="caption">
+                          {coverFiles.find(f => f.id !== 'existing-cover')?.file.name}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  {coverFiles.find(f => f.id === 'existing-cover') && (
+                    <Alert severity="info">
+                      Using existing cover: {coverFiles.find(f => f.id === 'existing-cover')?.file.name}
+                    </Alert>
+                  )}
                   <FileUpload
                     accept="image/jpeg,image/png,image/webp"
                     maxSize={MAX_COVER_SIZE}
-                    maxSizeMessage="Up to 10 MB"
+                    maxSizeMessage="Up to 500 KB"
+                    requiredWidth={1200}
+                    requiredHeight={1600}
                     label="Cover Image"
                     files={coverFiles}
                     onFilesChange={(files) => setCoverFiles(files.slice(0, 1))}

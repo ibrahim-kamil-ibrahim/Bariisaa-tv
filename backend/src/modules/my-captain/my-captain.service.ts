@@ -50,9 +50,10 @@ export async function deleteLeaderboardEntry(id: string) {
   return prisma.leaderboardEntry.delete({ where: { id } });
 }
 
-export async function listAchievements() {
+export async function listAchievements(showAll = false) {
   return prisma.achievement.findMany({
-    where: { isHidden: false },
+    // Mobile players only see visible achievements; admins pass showAll to manage every one.
+    where: showAll ? {} : { isHidden: false },
     orderBy: { order: 'asc' },
   });
 }

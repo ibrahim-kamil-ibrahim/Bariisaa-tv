@@ -103,12 +103,16 @@ class _StoryDetailContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    title,
-                    style: AppStyles.baloo2(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.darkNavy,
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppStyles.baloo2(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.darkNavy,
+                      ),
                     ),
                   ),
                 ],
@@ -120,293 +124,313 @@ class _StoryDetailContent extends StatelessWidget {
         // ── Full-width video player ──
         if (videoId != null)
           SliverToBoxAdapter(
-            child: _InlineStoryVideo(
-              videoId: videoId,
-              title: title,
-              posterUrl: resolvedCover,
-              showPlaceholder: true,
-            ),
-          ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-        // ── Title (large) ──
-        SliverToBoxAdapter(
-          child: Text(
-            title,
-            style: AppStyles.baloo2(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.darkNavy,
-              height: 1.2,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-        // ── Meta row (views + duration + pills) ──
-        SliverToBoxAdapter(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Views + duration (dark text on yellow = readable)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (views != null && views > 0)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.remove_red_eye_rounded,
-                          size: 13,
-                          color: AppTheme.silver,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _formatViews(views),
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.darkNavy,
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (duration != null && duration > 0)
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: AppTheme.silver,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _formatDuration(duration),
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.darkNavy,
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (views != null && views > 0 && duration != null && duration > 0)
-                    const SizedBox(width: 12),
-                ],
-              ),
-              // Pills
-              if (category != null || ageGroup != null || posted != null)
-                ..._metaPills(category, ageGroup, posted),
-            ],
-          ),
-        ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-        // ── Unlock prompt (shown when content is locked) ──
-        if (isLocked)
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppTheme.playfulRed.withValues(alpha: 0.25),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.playfulRed.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppTheme.playfulRed.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.lock_outline_rounded,
-                      size: 28,
-                      color: AppTheme.playfulRed,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '🔒 Premium Content',
-                          style: AppStyles.baloo2(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.darkNavy,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'This story is for Premium subscribers only.',
-                          style: AppStyles.nunito(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.charcoal,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => context.push(AppRoutes.paywall),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: AppTheme.deepNavy,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    child: const Text(
-                      'Subscribe & Unlock',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _InlineStoryVideo(
+                videoId: videoId,
+                title: title,
+                posterUrl: resolvedCover,
+                showPlaceholder: true,
               ),
             ),
           ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-        // ── Description (always present; empty state if missing) ──
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.darkNavy,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (isLocked)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.deepNavy.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        '🔒 Premium',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.gold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (description != null &&
-                  description.isNotEmpty)
-                Text(
-                  description,
-                  style: AppStyles.nunito(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.charcoal,
-                    height: 1.6,
-                  ),
-                  maxLines: 12,
-                  overflow: TextOverflow.ellipsis,
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(
-                    'No description available for this story.',
-                    style: AppStyles.nunito(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.silver,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-        // ── Action bar (at bottom, not floating) ──
-        if (!isLocked && videoId != null)
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: AppTheme.skyBlue.withValues(alpha: 0.25),
-                    width: 1,
+        // ── Content body (padded) ──
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Title (large) ──
+                Text(
+                  title,
+                  style: AppStyles.baloo2(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.darkNavy,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── Meta row (views + duration + pills) ──
+                Row(
+                  children: [
+                    if (views != null && views > 0)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.remove_red_eye_rounded,
+                            size: 14,
+                            color: AppTheme.silver,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _formatViews(views),
+                            style: AppStyles.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.darkNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (duration != null && duration > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: AppTheme.silver,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              _formatDuration(duration),
+                              style: AppStyles.nunito(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.darkNavy,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+
+                // ── Pills (wrapped so they never overflow) ──
+                if (category != null || ageGroup != null || posted != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _metaPills(category, ageGroup, posted),
+                    ),
+                  ),
+
+                const SizedBox(height: 14),
+
+                // ── Unlock prompt (shown when content is locked) ──
+                if (isLocked) _lockedBanner(context),
+
+                if (isLocked) const SizedBox(height: 14),
+
+                // ── Description card ──
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.darkNavy.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Description',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.darkNavy,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (isLocked)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.deepNavy.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                '🔒 Premium',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.gold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (description != null && description.isNotEmpty)
+                        Text(
+                          description,
+                          style: AppStyles.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.charcoal,
+                            height: 1.6,
+                          ),
+                        )
+                      else
+                        Text(
+                          'No description available for this story.',
+                          style: AppStyles.nunito(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.silver,
+                            height: 1.5,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  _actionButton(
-                    Icons.thumb_up_rounded,
-                    'Like',
-                    () => _handleAction('like', context),
+
+                const SizedBox(height: 16),
+
+                // ── Action bar ──
+                if (!isLocked && videoId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: AppTheme.skyBlue.withValues(alpha: 0.25),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        _actionButton(
+                          Icons.thumb_up_rounded,
+                          'Like',
+                          () => _handleAction('like', context),
+                        ),
+                        const SizedBox(width: 8),
+                        _actionButton(
+                          Icons.bookmark_rounded,
+                          'Save',
+                          () => _handleAction('save', context),
+                        ),
+                        const SizedBox(width: 8),
+                        _actionButton(
+                          Icons.share_rounded,
+                          'Share',
+                          () => _handleAction('share', context),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _actionButton(
-                    Icons.bookmark_rounded,
-                    'Save',
-                    () => _handleAction('save', context),
-                  ),
-                  const SizedBox(width: 8),
-                  _actionButton(
-                    Icons.share_rounded,
-                    'Share',
-                    () => _handleAction('share', context),
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
+        ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
+    );
+  }
+
+  /// Locked-content banner, extracted for clarity.
+  Widget _lockedBanner(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppTheme.playfulRed.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.playfulRed.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.playfulRed.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.lock_outline_rounded,
+              size: 28,
+              color: AppTheme.playfulRed,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '🔒 Premium Content',
+                  style: AppStyles.baloo2(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.darkNavy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'This story is for Premium subscribers only.',
+                  style: AppStyles.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.charcoal,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: () => context.push(AppRoutes.paywall),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.gold,
+              foregroundColor: AppTheme.deepNavy,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            child: const Text(
+              'Unlock',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -526,10 +550,10 @@ class _StoryDetailContent extends StatelessWidget {
   ) {
     final pills = <Widget>[];
     if (category != null) {
-      pills.add(_pill(category!, AppTheme.skyBlue, AppTheme.white));
+      pills.add(_pill(category, AppTheme.skyBlue, AppTheme.white));
     }
     if (ageGroup != null) {
-      pills.add(_pill(ageGroup!, AppTheme.softPurple, AppTheme.darkNavy));
+      pills.add(_pill(ageGroup, AppTheme.softPurple, AppTheme.darkNavy));
     }
     if (posted != null) {
       pills.add(
@@ -636,7 +660,9 @@ class _InlineStoryVideoState extends State<_InlineStoryVideo> {
 
     try {
       final play = await _repository.getVideoPlaybackUrl(widget.videoId!);
-      final url = play['url'] as String;
+      // Rewrite http://localhost:3000 → platform base (10.0.2.2 on Android dev)
+      // so local-storage playback works on the emulator; other URLs pass through.
+      final url = AppConstants.resolveUrl(play['url'] as String);
 
       // ── URL protocol check ──
       if (url.startsWith('http://') && !url.startsWith('http://localhost') &&
@@ -780,11 +806,8 @@ class _InlineStoryVideoState extends State<_InlineStoryVideo> {
   /// Used by the parent _player() widget for the play/pause button.
   ValueNotifier<bool> _getPlayStateNotifier() {
     // Lazy create the notifier
-    if (_playStateNotifier == null) {
-      _playStateNotifier =
-          ValueNotifier<bool>(_controller?.value.isPlaying ?? false);
-    }
-    return _playStateNotifier!;
+    return _playStateNotifier ??=
+        ValueNotifier<bool>(_controller?.value.isPlaying ?? false);
   }
 
   ValueNotifier<bool>? _playStateNotifier;

@@ -124,8 +124,12 @@ class ApiClient {
       refreshToken = await _secureStorage.read(
         key: AppConstants.refreshTokenKey,
       );
-    } catch (_) {}
-    if (refreshToken == null) {
+    } catch (e) {
+      debugPrint('[ApiClient] Failed to read refresh token: $e');
+      throw Exception('Failed to read refresh token');
+    }
+    if (refreshToken == null || refreshToken.isEmpty) {
+      debugPrint('[ApiClient] No refresh token available');
       throw Exception('No refresh token');
     }
 
@@ -138,27 +142,17 @@ class ApiClient {
       final newAccessToken = data['accessToken'] as String;
       final newRefreshToken = data['refreshToken'] as String;
 
-      _cachedAccessToken = newAccessToken;
-      try {
-        await _secureStorage.write(
-          key: AppConstants.accessTokenKey,
-          value: newAccessToken,
-        );
-      } catch (_) {}
+      // Persist the ROTATED refresh token first: the server has already
+      // revoked the old one, so if we can't store the new one we must not
+      // keep the revoked token around — it would trigger "reuse detected"
+      // and kill every session on the next refresh attempt.
       try {
         await _secureStorage.write(
           key: AppConstants.refreshTokenKey,
           value: newRefreshToken,
         );
-      } catch (_) {}
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.sendTimeout) {
-        throw Exception('Network error during token refresh');
-      }
-      if (e.response?.statusCode == 401) {
+      } catch (e) {
+        debugPrint('[ApiClient] Failed to persist rotated refresh token: $e');
         try {
           await _secureStorage.delete(key: AppConstants.accessTokenKey);
         } catch (_) {}
@@ -167,10 +161,62 @@ class ApiClient {
         } catch (_) {}
         _cachedAccessToken = null;
         _notifySessionExpired();
+        throw Exception('Failed to persist refresh token');
+      }
+
+      _cachedAccessToken = newAccessToken;
+      try {
+        await _secureStorage.write(
+          key: AppConstants.accessTokenKey,
+          value: newAccessToken,
+        );
+      } catch (e) {
+        // Access token is already cached in memory; storage write can be
+        // retried implicitly on next read — non-fatal.
+        debugPrint('[ApiClient] Failed to write access token: $e');
+      }
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final responseBody = e.response?.data;
+
+      // Connection errors: not a token issue, just network
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        debugPrint('[ApiClient] Token refresh network error: $statusCode');
+        throw Exception('Network error during token refresh');
+      }
+
+      // 401 means the refresh token was rejected by the server
+      if (statusCode == 401) {
+        debugPrint(
+          '[ApiClient] Token refresh rejected (401): ${responseBody ?? 'no body'}',
+        );
+        try {
+          await _secureStorage.delete(key: AppConstants.accessTokenKey);
+        } catch (e) {
+          debugPrint('[ApiClient] Failed to delete access token: $e');
+        }
+        try {
+          await _secureStorage.delete(key: AppConstants.refreshTokenKey);
+        } catch (e) {
+          debugPrint('[ApiClient] Failed to delete refresh token: $e');
+        }
+        _cachedAccessToken = null;
+        _notifySessionExpired();
+      }
+
+      // Other API errors (5xx, 400, etc.) — token may be valid but server error
+      if (kDebugMode) {
+        debugPrint(
+          '[ApiClient] Token refresh failed (status: $statusCode): $responseBody',
+        );
       }
       throw Exception('Token refresh failed');
     } catch (e) {
-      throw Exception('Token refresh failed: $e');
+      debugPrint('[ApiClient] Token refresh failed: $e');
+      throw Exception('Token refresh failed');
     }
   }
 

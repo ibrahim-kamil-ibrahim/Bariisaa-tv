@@ -15,6 +15,7 @@ const storyBaseSchema = z.object({
   tags: z.string().optional(),
   accessTier: z.enum(['FREE', 'PAID']).optional(),
   requiredPlanId: z.string().nullish(),
+  authorId: z.string().nullish(),
 });
 
 const paidContentRefine = (data: any) => {

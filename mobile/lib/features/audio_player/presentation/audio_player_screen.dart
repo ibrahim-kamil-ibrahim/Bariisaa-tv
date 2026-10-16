@@ -6,6 +6,7 @@ import '../../../shared/widgets/shared_widgets.dart';
 import '../../../shared/models/models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/di/injection.dart';
 import '../presentation/audio_player_cubit.dart';
 import '../domain/audio_player_state.dart';
 import '../../screen_theme/themed_screen_scaffold.dart';
@@ -16,8 +17,8 @@ class AudioPlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: context.read<AudioPlayerCubit>()..loadBook(book),
+    return BlocProvider(
+      create: (_) => getIt<AudioPlayerCubit>()..loadBook(book),
       child: const _AudioPlayerContent(),
     );
   }
@@ -32,6 +33,15 @@ class _AudioPlayerContent extends StatelessWidget {
       body: ThemedScreenScaffold(
         screenKey: 'player',
         child: BlocBuilder<AudioPlayerCubit, AudioPlayerState>(
+          buildWhen: (prev, curr) {
+            if (prev is! AudioPlayerLoaded || curr is! AudioPlayerLoaded) {
+              return true;
+            }
+            if (prev.position != curr.position) {
+              return false;
+            }
+            return true;
+          },
           builder: (context, state) {
             if (state is AudioPlayerLoading)
               return const LoadingMascot(message: 'Getting ready...');
@@ -190,47 +200,60 @@ class _AudioPlayerContent extends StatelessWidget {
                         alpha: 0.15,
                       ),
                     ),
-                    child: Slider(
-                      value: state.duration.inSeconds > 0
-                          ? state.position.inSeconds.toDouble()
-                          : 0,
-                      max: state.duration.inSeconds > 0
-                          ? state.duration.inSeconds.toDouble()
-                          : 1,
-                      onChanged: (v) => context.read<AudioPlayerCubit>().seek(
-                        Duration(seconds: v.toInt()),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _formatDuration(state.position),
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                        Text(
-                          '-${_formatDuration(state.duration - state.position)}',
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
+                    child: BlocBuilder<AudioPlayerCubit, AudioPlayerState>(
+                      builder: (context, sliderState) {
+                        if (sliderState is! AudioPlayerLoaded) {
+                          return const SizedBox.shrink();
+                        }
+                        return Column(
+                          children: [
+                            Slider(
+                              value: sliderState.duration.inSeconds > 0
+                                  ? sliderState.position.inSeconds.toDouble()
+                                  : 0,
+                              max: sliderState.duration.inSeconds > 0
+                                  ? sliderState.duration.inSeconds.toDouble()
+                                  : 1,
+                              onChanged: (v) =>
+                                  context.read<AudioPlayerCubit>().seek(
+                                    Duration(seconds: v.toInt()),
+                                  ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDuration(sliderState.position),
+                                    style: AppStyles.nunito(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.white
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                  Text(
+                                    '-${_formatDuration(sliderState.duration - sliderState.position)}',
+                                    style: AppStyles.nunito(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.white
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

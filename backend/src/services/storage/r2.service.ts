@@ -35,8 +35,27 @@ const R2_ENDPOINT =
 export const R2_UPLOAD_URL_EXPIRY = 900; // 15 minutes (upload)
 export const R2_DOWNLOAD_URL_EXPIRY = 300; // 5 minutes (playback)
 
+/**
+ * `.env.example` ships placeholder values (`your-r2-access-key-id`, …). Treat
+ * them as unconfigured so we can fall back to local disk storage instead of
+ * presigning URLs against a host that does not exist.
+ */
+function isPlaceholder(value?: string): boolean {
+  return !value || value.trim().toLowerCase().startsWith('your-');
+}
+
+export function isR2Configured(): boolean {
+  return (
+    !isPlaceholder(env.R2_ACCESS_KEY_ID) &&
+    !isPlaceholder(env.R2_SECRET_ACCESS_KEY) &&
+    !isPlaceholder(env.R2_BUCKET_NAME) &&
+    !isPlaceholder(R2_ENDPOINT) &&
+    Boolean(R2_ENDPOINT)
+  );
+}
+
 function isConfigured(): boolean {
-  return Boolean(env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME && R2_ENDPOINT);
+  return isR2Configured();
 }
 
 let _client: S3Client | null = null;

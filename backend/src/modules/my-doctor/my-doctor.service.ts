@@ -54,9 +54,10 @@ export async function listHealthTips() {
   return prisma.healthTip.findMany({ orderBy: { order: 'asc' } });
 }
 
-export async function listDoctorProfiles() {
+export async function listDoctorProfiles(showAll = false) {
   return prisma.doctorProfile.findMany({
-    where: { available: true },
+    // Mobile patients only see available doctors; admins pass showAll to manage every profile.
+    where: showAll ? {} : { available: true },
     orderBy: { order: 'asc' },
   });
 }

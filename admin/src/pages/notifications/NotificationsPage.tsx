@@ -87,8 +87,8 @@ export default function NotificationsPage() {
       <PageHeader title="Notifications" subtitle="Send and manage push notifications" />
 
       <Grid container spacing={3}>
+        <Grid item xs={12} md={5}>
         <FadeIn delay={0}>
-          <Grid item xs={12} md={5}>
           <Card>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} mb={2}>
@@ -168,11 +168,11 @@ export default function NotificationsPage() {
               </Button>
             </CardContent>
           </Card>
-        </Grid>
         </FadeIn>
+        </Grid>
 
-        <FadeIn delay={100}>
         <Grid item xs={12} md={7}>
+        <FadeIn delay={100}>
           <Card>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={600} mb={2}>
@@ -243,8 +243,8 @@ export default function NotificationsPage() {
               )}
             </CardContent>
           </Card>
-        </Grid>
         </FadeIn>
+        </Grid>
       </Grid>
     </Box>
   );

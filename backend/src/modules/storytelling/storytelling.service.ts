@@ -19,6 +19,7 @@ interface CreateStoryData {
   tags?: string;
   accessTier?: 'FREE' | 'PAID';
   requiredPlanId?: string | null;
+  authorId?: string | null;
 }
 
 interface StoryQuery {
@@ -120,7 +121,8 @@ export async function createStory(data: CreateStoryData) {
   const videoId = data.videoId || null;
   if (videoId) await assertVideoLinkable(videoId);
 
-  const story = await prisma.story.create({ data: { ...data, videoId } });
+  const payload = { ...data, videoId, authorId: data.authorId || null };
+  const story = await prisma.story.create({ data: payload });
 
   if (videoId) await syncVideoOwnership(videoId, story.id, story.accessTier);
   return story;
@@ -134,7 +136,9 @@ export async function updateStory(id: string, data: Partial<CreateStoryData>) {
   const videoId = hasVideoChange ? data.videoId || null : existing.videoId;
   if (hasVideoChange && videoId) await assertVideoLinkable(videoId);
 
-  const story = await prisma.story.update({ where: { id }, data: { ...data, videoId } });
+  const payload: Record<string, unknown> = { ...data, videoId };
+  if ('authorId' in data) payload.authorId = data.authorId || null;
+  const story = await prisma.story.update({ where: { id }, data: payload as any });
 
   if (hasVideoChange && existing.videoId && existing.videoId !== videoId) {
     await unlinkVideoFromStory(existing.videoId, id);
@@ -153,7 +157,10 @@ export async function deleteStory(id: string) {
 }
 
 export async function getStoryById(id: string, userId?: string | null, bypassLocks = false) {
-  const story = await prisma.story.findUnique({ where: { id } });
+  const story = await prisma.story.findUnique({
+    where: { id },
+    include: { author: { select: { id: true, name: true, photoUrl: true } } },
+  });
   if (!story) throw new AppError('Story not found', 404);
   const [locked] = await withStoryLocks([story], userId, bypassLocks);
   return locked;
@@ -171,7 +178,13 @@ export async function listStories(query: StoryQuery, userId?: string | null, byp
   if (query.accessTier) where.accessTier = query.accessTier;
 
   const [stories, total] = await Promise.all([
-    prisma.story.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+    prisma.story.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { author: { select: { id: true, name: true, photoUrl: true } } },
+    }),
     prisma.story.count({ where }),
   ]);
   return { stories: await withStoryLocks(stories, userId, bypassLocks), total };

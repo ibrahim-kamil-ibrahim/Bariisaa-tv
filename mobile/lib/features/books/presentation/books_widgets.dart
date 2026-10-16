@@ -102,6 +102,7 @@ class ContinueReadingRow extends StatelessWidget {
                         rating: book.avgRating,
                         durationSeconds: book.audioFile?.durationSeconds,
                         isPremium: book.isPremium,
+                        isLocked: book.isLocked ?? false,
                         onTap: () => onTap(book),
                       )
                     : EbookCard(
@@ -112,6 +113,7 @@ class ContinueReadingRow extends StatelessWidget {
                             : null,
                         rating: book.avgRating,
                         isPremium: book.isPremium,
+                        isLocked: book.isLocked ?? false,
                         onTap: () => onTap(book),
                       ),
               );

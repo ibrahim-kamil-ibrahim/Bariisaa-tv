@@ -42,17 +42,32 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     required String planId,
     required String paymentGateway,
     String? couponCode,
+    String? channel,
+    String? accountName,
+    String? reference,
   }) async {
-    emit(SubscriptionLoading());
+    emit(const SubscriptionLoading());
     try {
-      await _repository.createSubscription(
+      final data = await _repository.createSubscription(
         planId: planId,
         paymentGateway: paymentGateway,
         couponCode: couponCode,
+        channel: channel,
+        accountName: accountName,
+        reference: reference,
       );
       if (isClosed) return;
-      emit(const SubscriptionSuccess('Subscription created successfully!'));
-      checkStatus();
+      emit(PaymentInitiated(
+        paymentId: data['paymentId'] as String? ?? '',
+        subscriptionId: data['subscriptionId'] as String? ?? '',
+        gateway: data['gateway'] as String? ?? paymentGateway.toUpperCase(),
+        amount: (data['amount'] as num?)?.toDouble() ?? 0,
+        currency: data['currency'] as String? ?? 'USD',
+        paymentUrl: data['paymentUrl'] as String?,
+        checkoutInfo: data['checkoutInfo'] is Map
+            ? Map<String, dynamic>.from(data['checkoutInfo'] as Map)
+            : null,
+      ));
     } catch (e) {
       if (isClosed) return;
       emit(SubscriptionError('Payment failed: $e'));

@@ -104,6 +104,65 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
     });
+
+    it('should re-serve active successor when reuse happens within grace window', async () => {
+      const staleToken = jwt.sign(
+        { userId: 'user-1', familyId: 'family-1', jti: 'jti-old' },
+        process.env.JWT_REFRESH_SECRET!,
+        { expiresIn: '1d' }
+      );
+
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-old',
+        token: staleToken,
+        userId: 'user-1',
+        familyId: 'family-1',
+        revokedAt: new Date(Date.now() - 5_000), // rotated 5s ago (< 60s grace)
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        user: { status: 'ACTIVE' },
+      });
+      mockPrisma.refreshToken.findFirst.mockResolvedValue({
+        id: 'rt-new',
+        token: 'active-successor-token',
+        userId: 'user-1',
+        familyId: 'family-1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+
+      const result = await authService.refreshAccessToken(staleToken);
+
+      expect(result.refreshToken).toBe('active-successor-token');
+      // Family must NOT be revoked on benign grace-window reuse
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should revoke the family when reuse happens outside grace window', async () => {
+      const staleToken = jwt.sign(
+        { userId: 'user-1', familyId: 'family-1', jti: 'jti-old' },
+        process.env.JWT_REFRESH_SECRET!,
+        { expiresIn: '1d' }
+      );
+
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-old',
+        token: staleToken,
+        userId: 'user-1',
+        familyId: 'family-1',
+        revokedAt: new Date(Date.now() - 10 * 60 * 1000), // rotated 10min ago
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        user: { status: 'ACTIVE' },
+      });
+
+      await expect(authService.refreshAccessToken(staleToken)).rejects.toThrow(
+        'Refresh token reuse detected. All sessions revoked.'
+      );
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { familyId: 'family-1', revokedAt: null },
+        })
+      );
+    });
   });
 
   describe('upgradePassword', () => {

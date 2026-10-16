@@ -185,6 +185,7 @@ class _CategoryBrowseScreenState extends State<CategoryBrowseScreen> {
         rating: book.avgRating,
         durationSeconds: book.audioFile?.durationSeconds,
         isPremium: book.isPremium,
+        isLocked: book.isLocked ?? false,
         onTap: onTap,
         onPlay: onTap,
       );
@@ -195,6 +196,7 @@ class _CategoryBrowseScreenState extends State<CategoryBrowseScreen> {
       author: book.authors.isNotEmpty ? book.authors.first.name : null,
       rating: book.avgRating,
       isPremium: book.isPremium,
+      isLocked: book.isLocked ?? false,
       onTap: onTap,
       onRead: onTap,
     );

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/navigation/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/styles.dart';
 import '../../../shared/widgets/shared_widgets.dart';
 import '../domain/auth_state.dart';
 import 'auth_cubit.dart';
@@ -26,10 +27,8 @@ class _SignupScreenState extends State<SignupScreen> {
   // Step 2: Age
   final _ageController = TextEditingController();
 
-  // Step 2: Age scroll controller (created once, reused)
   late final FixedExtentScrollController _ageScrollController;
 
-  // State
   String? _selectedGender;
   String? _selectedAvatar;
   bool _obscurePassword = true;
@@ -168,108 +167,181 @@ class _SignupScreenState extends State<SignupScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.deepNavy,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-            onPressed: _step > 0 ? _prevStep : () => context.pop(),
-          ),
-          title: Text(
-            'Step ${_step + 1} of 6',
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-          centerTitle: true,
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildProgressIndicator(),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _buildStep1Name(),
-                    _buildStep2Age(),
-                    _buildStep3Gender(),
-                    _buildStep4Avatar(),
-                    _buildStep5Account(),
-                  ],
-                ),
+        backgroundColor: AppTheme.sunnyYellow,
+        body: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              left: -60,
+              child: _blob(200, AppTheme.skyBlueLight, 0.35),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -70,
+              child: _blob(240, AppTheme.white, 0.30),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppTheme.white,
+                            foregroundColor: AppTheme.darkNavy,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: _step > 0 ? _prevStep : () => context.pop(),
+                          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Step ${_step + 1} of 5',
+                                style: AppStyles.nunito(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.darkNavy.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _buildProgressIndicator(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        _buildStep1Name(),
+                        _buildStep2Age(),
+                        _buildStep3Gender(),
+                        _buildStep4Avatar(),
+                        _buildStep5Account(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _blob(double size, Color color, double opacity) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: opacity),
       ),
     );
   }
 
   Widget _buildProgressIndicator() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: Row(
-        children: List.generate(6, (i) {
-          final isActive = i <= _step;
-          return Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 4,
-              decoration: BoxDecoration(
-                color: isActive ? AppTheme.gold : Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return Row(
+      children: List.generate(5, (i) {
+        final isActive = i <= _step;
+        return Expanded(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            height: 6,
+            decoration: BoxDecoration(
+              color: isActive ? AppTheme.deepNavy : AppTheme.white,
+              borderRadius: BorderRadius.circular(3),
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      }),
     );
   }
 
-  // ── Step 1: Full Name ────────────────────────────────────────────────────────
   static const _stepMascots = [
     MascotBubble(emoji: '👋', size: 90, label: 'Hi friend!'),
     MascotBubble(emoji: '🎂', size: 90, label: 'Pick your age!'),
     MascotBubble(emoji: '🌈', size: 90, label: 'You do you!'),
     MascotBubble(emoji: '🦸', size: 90, label: 'Pick your hero!'),
     MascotBubble(emoji: '🔐', size: 70, label: 'Grown-up step'),
-    MascotBubble(emoji: '🎉', size: 90, label: 'All done!'),
   ];
 
-  Widget _buildStep1Name() {
+  /// Shared white card shell for every signup step.
+  Widget _stepCard({required Widget child}) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppTheme.offWhite,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.darkNavy.withValues(alpha: 0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        child: child,
+      ),
+    );
+  }
+
+  // ── Step 1: Full Name ────────────────────────────────────────────────────────
+
+  Widget _buildStep1Name() {
+    return _stepCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
           _stepMascots[0],
           const SizedBox(height: 8),
-          const Text(
+          Text(
             "What's your name?",
-            style: TextStyle(
+            style: AppStyles.baloo2(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontFamily: 'Baloo2',
+              color: AppTheme.darkNavy,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             "Let's get to know you!",
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.charcoal),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          _buildLabel('Full Name'),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _nameController,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: AppStyles.nunito(fontSize: 16, color: AppTheme.darkNavy),
             textCapitalization: TextCapitalization.words,
-            decoration: _inputDecoration('Enter your full name'),
+            textInputAction: TextInputAction.next,
+            decoration: _inputDecoration(
+              'Enter your full name',
+              icon: Icons.face_outlined,
+            ),
             autofocus: true,
           ),
           const Spacer(),
@@ -284,58 +356,63 @@ class _SignupScreenState extends State<SignupScreen> {
   // ── Step 2: Age ──────────────────────────────────────────────────────────────
 
   Widget _buildStep2Age() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return _stepCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
           _stepMascots[1],
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'How old are you?',
-            style: TextStyle(
+            style: AppStyles.baloo2(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontFamily: 'Baloo2',
+              color: AppTheme.darkNavy,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Pick your age from the wheel',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.charcoal),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           Expanded(
-            child: ListWheelScrollView.useDelegate(
-              controller: _ageScrollController,
-              itemExtent: 56,
-              physics: const FixedExtentScrollPhysics(),
-              onSelectedItemChanged: (i) {
-                _ageController.text = '${i + 3}';
-              },
-              childDelegate: ListWheelChildBuilderDelegate(
-                childCount: 15,
-                builder: (context, i) {
-                  final age = i + 3;
-                  return Center(
-                    child: Text(
-                      '$age',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.softGrey),
+              ),
+              child: ListWheelScrollView.useDelegate(
+                controller: _ageScrollController,
+                itemExtent: 56,
+                physics: const FixedExtentScrollPhysics(),
+                diameterRatio: 1.6,
+                useMagnifier: true,
+                magnification: 1.15,
+                onSelectedItemChanged: (i) {
+                  _ageController.text = '${i + 3}';
                 },
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: 15,
+                  builder: (context, i) {
+                    final age = i + 3;
+                    return Center(
+                      child: Text(
+                        '$age',
+                        style: AppStyles.baloo2(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.darkNavy,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
+          const SizedBox(height: 16),
           _buildContinueButton(() {
             if (_validateCurrentStep()) _nextStep();
           }),
@@ -347,30 +424,27 @@ class _SignupScreenState extends State<SignupScreen> {
   // ── Step 3: Gender ───────────────────────────────────────────────────────────
 
   Widget _buildStep3Gender() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return _stepCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
           _stepMascots[2],
           const SizedBox(height: 8),
-          const Text(
+          Text(
             "What's your gender?",
-            style: TextStyle(
+            style: AppStyles.baloo2(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontFamily: 'Baloo2',
+              color: AppTheme.darkNavy,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(child: _buildGenderCard('Boy', '👦', 'BOY')),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(child: _buildGenderCard('Girl', '👧', 'GIRL')),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(child: _buildGenderCard('Other', '🦋', 'OTHER')),
             ],
           ),
@@ -389,29 +463,36 @@ class _SignupScreenState extends State<SignupScreen> {
       onTap: () => setState(() => _selectedGender = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(vertical: 32),
+        padding: const EdgeInsets.symmetric(vertical: 26),
         decoration: BoxDecoration(
           color: selected
-              ? AppTheme.gold.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(20),
+              ? AppTheme.sunnyYellow.withValues(alpha: 0.25)
+              : AppTheme.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: selected
-                ? AppTheme.gold
-                : Colors.white.withValues(alpha: 0.12),
-            width: selected ? 2 : 1,
+            color: selected ? AppTheme.sunnyYellow : AppTheme.softGrey,
+            width: selected ? 2.5 : 1,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.sunnyYellow.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
+            Text(emoji, style: const TextStyle(fontSize: 44)),
+            const SizedBox(height: 10),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 18,
+              style: AppStyles.baloo2(
+                fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: selected ? AppTheme.gold : Colors.white,
+                color: selected ? AppTheme.darkNavy : AppTheme.charcoal,
               ),
             ),
           ],
@@ -423,38 +504,32 @@ class _SignupScreenState extends State<SignupScreen> {
   // ── Step 4: Avatar ───────────────────────────────────────────────────────────
 
   Widget _buildStep4Avatar() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return _stepCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
           _stepMascots[3],
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Choose your avatar',
-            style: TextStyle(
+            style: AppStyles.baloo2(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              fontFamily: 'Baloo2',
+              color: AppTheme.darkNavy,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Pick one that looks like you!',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.charcoal),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           Expanded(
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
               ),
               itemCount: _avatarEmojis.length,
               itemBuilder: (context, i) {
@@ -466,22 +541,36 @@ class _SignupScreenState extends State<SignupScreen> {
                     duration: const Duration(milliseconds: 250),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppTheme.gold.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.06),
+                          ? AppTheme.sunnyYellow.withValues(alpha: 0.3)
+                          : AppTheme.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: selected ? AppTheme.gold : Colors.transparent,
-                        width: 3,
+                        color: selected
+                            ? AppTheme.sunnyYellow
+                            : AppTheme.softGrey,
+                        width: selected ? 3 : 1,
                       ),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                color: AppTheme.sunnyYellow.withValues(
+                                  alpha: 0.45,
+                                ),
+                                blurRadius: 12,
+                                offset: const Offset(0, 5),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 48)),
+                      child: Text(emoji, style: const TextStyle(fontSize: 44)),
                     ),
                   ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 14),
           _buildContinueButton(() {
             if (_validateCurrentStep()) _nextStep();
           }),
@@ -493,117 +582,115 @@ class _SignupScreenState extends State<SignupScreen> {
   // ── Step 5: Account (Username + Password) ──────────────────────────────────────
 
   Widget _buildStep5Account() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1A2332), Color(0xFF0F1A2E)],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            MascotBubble(
-              emoji: '🔐',
-              size: 72,
-              label: 'Grown-up step',
-              backgroundColor: AppTheme.accentBlue.withValues(alpha: 0.18),
+    return _stepCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _stepMascots[4],
+          const SizedBox(height: 8),
+          Text(
+            'Create your account',
+            style: AppStyles.baloo2(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.darkNavy,
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Create your account',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                fontFamily: 'Baloo2',
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Pick a username and set your password',
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.charcoal),
+          ),
+          const SizedBox(height: 22),
+          _buildLabel('Username'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _usernameController,
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.darkNavy),
+            textCapitalization: TextCapitalization.none,
+            textInputAction: TextInputAction.next,
+            decoration: _inputDecoration(
+              'Choose a username',
+              icon: Icons.alternate_email_rounded,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Pick a username and set your password',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildLabel('Username'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _usernameController,
-              style: const TextStyle(color: Colors.white),
-              textCapitalization: TextCapitalization.none,
-              decoration: _inputDecoration('Choose a username', borderColor: AppTheme.sunnyYellow),
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Password'),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _passwordController,
-              style: const TextStyle(color: Colors.white),
-              obscureText: _obscurePassword,
-              decoration: _inputDecoration('At least 8 characters', borderColor: AppTheme.sunnyYellow)
-                  .copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white54,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
+          ),
+          const SizedBox(height: 16),
+          _buildLabel('Password'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _passwordController,
+            style: AppStyles.nunito(fontSize: 15, color: AppTheme.darkNavy),
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _submit(),
+            decoration: _inputDecoration(
+              'At least 8 characters',
+              icon: Icons.lock_outline_rounded,
+            ).copyWith(
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: AppTheme.silver,
                 ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
-            const SizedBox(height: 28),
-            BlocBuilder<AuthCubit, AuthState>(
-              builder: (context, state) {
-                final loading = state is AuthSignupLoading;
-                return SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.sunnyYellow,
-                      foregroundColor: AppTheme.deepNavy,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+          ),
+          const SizedBox(height: 24),
+          BlocBuilder<AuthCubit, AuthState>(
+            builder: (context, state) {
+              final loading = state is AuthSignupLoading;
+              return SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.sunnyYellow,
+                    foregroundColor: AppTheme.deepNavy,
+                    elevation: 0,
+                    shadowColor: AppTheme.sunnyYellow.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    onPressed: loading ? null : _submit,
-                    child: loading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            Text(
+                  onPressed: loading ? null : _submit,
+                  child: loading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: AppTheme.deepNavy,
+                          ),
+                        )
+                      : Text(
+                          'Create Account',
+                          style: AppStyles.baloo2(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.deepNavy,
+                          ),
+                        ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
               'Your parent may need to help with this step.',
-              style: TextStyle(
+              textAlign: TextAlign.center,
+              style: AppStyles.nunito(
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
+                color: AppTheme.silver,
               ),
             ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -613,10 +700,11 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
+      style: AppStyles.nunito(
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.charcoal,
+        letterSpacing: 0.4,
       ),
     );
   }
@@ -627,50 +715,62 @@ class _SignupScreenState extends State<SignupScreen> {
       height: 56,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryYellow,
-          foregroundColor: AppTheme.textNavy,
+          backgroundColor: AppTheme.sunnyYellow,
+          foregroundColor: AppTheme.deepNavy,
+          elevation: 0,
+          shadowColor: AppTheme.sunnyYellow.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
         onPressed: onPressed,
-        child: const Text(
+        child: Text(
           'Continue',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: AppStyles.baloo2(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.deepNavy,
+          ),
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String hint, {Color? borderColor}) {
-    final bc = borderColor ?? Colors.white.withValues(alpha: 0.15);
+  InputDecoration _inputDecoration(String hint, {IconData? icon}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+      hintStyle: AppStyles.nunito(fontSize: 14, color: AppTheme.silver),
+      prefixIcon: icon != null
+          ? Icon(icon, color: AppTheme.silver, size: 22)
+          : null,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.08),
+      fillColor: AppTheme.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: bc),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: AppTheme.softGrey),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: bc),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: AppTheme.softGrey),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppTheme.sunnyYellow, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppTheme.skyBlue, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppTheme.errorRed),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
       ),
-      errorStyle: const TextStyle(color: Colors.redAccent),
+      errorStyle: AppStyles.nunito(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.errorRed,
+      ),
     );
   }
 }

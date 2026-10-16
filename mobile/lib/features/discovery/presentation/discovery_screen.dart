@@ -17,9 +17,9 @@ import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_cubit.dart';
 import '../../../core/di/injection.dart';
 
-/// ═══════════════════════════════════════════════════════════════
-///  DISCOVERY SCREEN — Modern Kids-First Design
-/// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  DISCOVERY SCREEN — Modern Kids-First Design
+// ═══════════════════════════════════════════════════════════════
 ///  Vibrant gradient backgrounds, playful rounded shapes, big touch
 ///  targets, fun emojis, and animated interactions. Everything is
 ///  designed for young readers with small fingers.
@@ -34,7 +34,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   bool _initialLoadDone = false;
   final _carouselController = PageController(viewportFraction: 0.92);
   Timer? _carouselTimer;
-  int _carouselIndex = 0;
+  final _dotIndex = ValueNotifier<int>(0);
   bool _isDragging = false;
 
   // Cached PageControllers for shelves — recreated only on screen width change.
@@ -53,9 +53,25 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   ];
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialLoadDone) return;
+  void initState() {
+    super.initState();
+    _loadInitialData();
+    _loadAuthData();
+  }
+
+  void _loadAuthData() {
+    try {
+      final authState = context.read<AuthCubit>().state;
+      if (authState is AuthAuthenticated) {
+        _userAvatar = authState.user.avatarUrl;
+      }
+    } catch (_) {}
+  }
+
+  // Cached user avatar — avoids reading AuthCubit on every build
+  String? _userAvatar;
+
+  void _loadInitialData() {
     final cubit = context.read<DiscoveryCubit>();
     final state = cubit.state;
     if (state is DiscoveryInitial ||
@@ -64,6 +80,24 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       _initialLoadDone = true;
       cubit.loadCategories();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialLoadDone) _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _booksController?.dispose();
+    _audioController?.dispose();
+    _musicController?.dispose();
+    _storiesController?.dispose();
+    _carouselController.dispose();
+    _carouselTimer?.cancel();
+    _dotIndex.dispose();
+    super.dispose();
   }
 
   @override
@@ -109,13 +143,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
 
   PreferredSizeWidget _modernAppBar(BuildContext context, String? avatarUrl) {
     // Prefer user's profile picture over theme avatar
-    String? userAvatar;
-    try {
-      final authState = context.read<AuthCubit>().state;
-      if (authState is AuthAuthenticated) {
-        userAvatar = authState.user.avatarUrl;
-      }
-    } catch (_) {}
+    String? userAvatar = _userAvatar;
     final displayAvatar = userAvatar ?? avatarUrl;
     final resolvedAvatar = displayAvatar != null && displayAvatar.isNotEmpty
         ? AppConstants.resolveUrl(displayAvatar)
@@ -146,122 +174,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     );
   }
 
-  Widget _playfulAvatar(String? url) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.sunnyYellow,
-            AppTheme.sunnyYellow.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.sunnyYellow.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: url != null && url.isNotEmpty
-            ? cached.CachedNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.cover,
-                memCacheWidth: 44,
-                memCacheHeight: 44,
-                placeholder: (_, _) =>
-                    Center(child: Text('🦉', style: TextStyle(fontSize: 22))),
-                errorWidget: (_, _, _) =>
-                    Center(child: Text('🦉', style: TextStyle(fontSize: 22))),
-              )
-            : Center(child: Text('🦉', style: TextStyle(fontSize: 22))),
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════
   //  MODERN LOADING SHIMMER
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _modernShimmer() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Hero shimmer
-          Container(
-            height: 280,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.sunnyYellow.withValues(alpha: 0.2),
-                  AppTheme.skyBlue.withValues(alpha: 0.2),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Shelf shimmer rows
-          ...List.generate(
-            3,
-            (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppTheme.sunnyYellow.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 100,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: AppTheme.darkNavy.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 110,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 4,
-                      separatorBuilder: (ctx, idx) => const SizedBox(width: 12),
-                      itemBuilder: (ctx, idx) => Container(
-                        width: 200,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          color: AppTheme.offWhite,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _modernShimmer() => const _DiscoveryShimmer();
 
   // ═══════════════════════════════════════════════════════════════
   //  MAIN SHELVES LAYOUT
@@ -289,55 +206,41 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       sections.add(() => _quickCategoryPills(context, state.exploreCategories));
     }
     if (ebooks.isNotEmpty) {
-      sections.add(() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 24),
-          _modernShelfHeader(emoji: '📚', title: 'Books'),
-          const SizedBox(height: 10),
-          _booksShelf(context, ctx, ebooks),
-        ],
-      ));
+      sections.add(() => _sectionCard(
+            color: _sectionColors[0],
+            child: _booksShelf(context, ctx, ebooks,
+                emoji: '📚', title: 'Books'),
+          ));
     }
     if (audiobooks.isNotEmpty) {
-      sections.add(() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 24),
-          _modernShelfHeader(emoji: '🎧', title: 'Audio Books'),
-          const SizedBox(height: 10),
-          _audioBooksShelf(ctx, audiobooks),
-        ],
-      ));
+      sections.add(() => _sectionCard(
+            color: _sectionColors[1],
+            child: _audioBooksShelf(ctx, audiobooks,
+                emoji: '🎧', title: 'Audio Books'),
+          ));
     }
     if (musicTracks.isNotEmpty) {
-      sections.add(() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 24),
-          _modernShelfHeader(emoji: '🎵', title: 'Music'),
-          const SizedBox(height: 10),
-          _musicShelf(ctx, musicTracks),
-        ],
-      ));
+      sections.add(() => _sectionCard(
+            color: _sectionColors[2],
+            child: _musicShelf(ctx, musicTracks, emoji: '🎵', title: 'Music'),
+          ));
     }
     if (stories.isNotEmpty) {
-      sections.add(() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 24),
-          _modernShelfHeader(emoji: '📖', title: 'Stories'),
-          const SizedBox(height: 10),
-          _storiesShelf(ctx, stories),
-        ],
-      ));
+      sections.add(() => _sectionCard(
+            color: _sectionColors[3],
+            child: _storiesShelf(ctx, stories, emoji: '📖', title: 'Stories'),
+          ));
     }
     if (state.exploreCategories.isNotEmpty) {
       sections.add(() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          _modernShelfHeader(emoji: '🧭', title: 'Explore'),
+          _modernShelfHeader(
+            emoji: '🧭',
+            title: 'Explore',
+            color: AppTheme.softPurple,
+          ),
           const SizedBox(height: 10),
           _exploreGrid(context, state.exploreCategories),
         ],
@@ -385,10 +288,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
               NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
                   if (notification is ScrollStartNotification) {
-                    setState(() => _isDragging = true);
+                    _isDragging = true;
                     _carouselTimer?.cancel();
                   } else if (notification is ScrollEndNotification) {
-                    setState(() => _isDragging = false);
+                    _isDragging = false;
                     _startCarouselTimer();
                   }
                   return false;
@@ -407,7 +310,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                   ),
                   onPageChanged: (i) {
                     if (!_isDragging) {
-                      setState(() => _carouselIndex = i.toInt());
+                      _dotIndex.value = i.toInt();
                     }
                   },
                 ),
@@ -426,31 +329,29 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   }
 
   Widget _buildPagination(BuildContext context, int count) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (i) {
-        final isActive = i == _carouselIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: isActive ? 20 : 8,
-          height: isActive ? 8 : 6,
-          decoration: BoxDecoration(
-            color: isActive ? AppTheme.sunnyYellow : Colors.white.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(4),
-          ),
+    return ValueListenableBuilder<int>(
+      valueListenable: _dotIndex,
+      builder: (context, activeIndex, _) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(count, (i) {
+            final isActive = i == activeIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 20 : 8,
+              height: isActive ? 8 : 6,
+              decoration: BoxDecoration(
+                color:
+                    isActive ? AppTheme.sunnyYellow : Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
         );
-      }),
+      },
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startCarouselTimer();
-    });
   }
 
   void _startCarouselTimer() {
@@ -462,26 +363,16 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     _carouselTimer?.cancel();
     _carouselTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || _isDragging) return;
-      final next = ((_carouselIndex + 1) % featured.length).toInt();
+      final next = ((_dotIndex.value + 1) % featured.length).toInt();
       _carouselController.animateToPage(
         next,
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOutCubic,
       );
-      setState(() => _carouselIndex = next.toInt());
+      _dotIndex.value = next;
     });
   }
 
-  @override
-  void dispose() {
-    _carouselTimer?.cancel();
-    _carouselController.dispose();
-    _booksController?.dispose();
-    _audioController?.dispose();
-    _musicController?.dispose();
-    _storiesController?.dispose();
-    super.dispose();
-  }
 
   /// Ensure shelf PageControllers match current screen width.
   void _ensureShelfControllers(double screenWidth) {
@@ -537,10 +428,18 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         width: double.infinity,
         height: cardHeight,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.deepNavy.withValues(alpha: 0.25),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -550,8 +449,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                   imageUrl: resolvedCover,
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.high,
-                  memCacheWidth: 800,
-                  memCacheHeight: 600,
+                  memCacheWidth: 680,
+                  memCacheHeight: 510,
                   placeholder: (_, _) => _heroImageFallback(type),
                   errorWidget: (_, _, _) => _heroImageFallback(type),
                 )
@@ -567,9 +466,49 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                       Colors.transparent,
                       Colors.black.withValues(alpha: 0.05),
                       Colors.black.withValues(alpha: 0.45),
-                      Colors.black.withValues(alpha: 0.75),
+                      Colors.black.withValues(alpha: 0.78),
                     ],
                     stops: const [0.0, 0.35, 0.7, 1.0],
+                  ),
+                ),
+              ),
+              // ── Type badge (top-left) ─────────────────────────────
+              Positioned(
+                top: 14,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        type == 'music'
+                            ? '🎵'
+                            : type == 'story'
+                                ? '📖'
+                                : type == 'audio'
+                                    ? '🎧'
+                                    : '📚',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        typeLabel.toUpperCase(),
+                        style: AppStyles.nunito(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.deepNavy,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -626,8 +565,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.sunnyYellow,
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.gold, AppTheme.softAmber],
+                            ),
                             borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.gold.withValues(alpha: 0.45),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -668,7 +616,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
             ? '📖'
             : '📚';
     return Container(
-      color: AppTheme.darkNavy,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppTheme.deepPurple, AppTheme.skyBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Center(
         child: Text(
           emoji,
@@ -710,12 +664,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
               if (cat.route != null) context.push(cat.route!);
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.28),
+                    color.withValues(alpha: 0.14),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: color.withValues(alpha: 0.3),
+                  color: color.withValues(alpha: 0.4),
                   width: 1,
                 ),
               ),
@@ -744,19 +703,58 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  //  SECTION CARD — tinted shelf container
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _sectionCard({required Color color, required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+      padding: const EdgeInsets.fromLTRB(4, 14, 4, 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.28),
+            color.withValues(alpha: 0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: color.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   //  MODERN SHELF HEADER
   // ═══════════════════════════════════════════════════════════════
 
   Widget _modernShelfHeader({
     required String emoji,
     required String title,
+    Color? color,
   }) {
+    final accent = color ?? AppTheme.sunnyYellow;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Center(
+              child: Text(emoji, style: const TextStyle(fontSize: 17)),
+            ),
+          ),
+          const SizedBox(width: 10),
           Text(
             title,
             style: AppStyles.baloo2(
@@ -766,10 +764,31 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
             ),
           ),
           const Spacer(),
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 14,
-            color: AppTheme.darkNavy.withValues(alpha: 0.4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.darkNavy.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Swipe',
+                  style: AppStyles.nunito(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.darkNavy.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 10,
+                  color: AppTheme.darkNavy.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -783,27 +802,40 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   Widget _booksShelf(
     BuildContext context,
     BuildContext ctx,
-    List<BookModel> books,
-  ) {
+    List<BookModel> books, {
+    required String emoji,
+    required String title,
+  }) {
     final screenWidth = MediaQuery.of(context).size.width;
     final cardWidth = screenWidth * 0.60;
-    const cardHeight = 110.0;
+    const cardHeight = 118.0;
     _ensureShelfControllers(screenWidth);
 
-    return SizedBox(
-      height: cardHeight + 12,
-      child: PageView.builder(
-        physics: const PageScrollPhysics(),
-        padEnds: false,
-        itemCount: books.length,
-        controller: _booksController,
-        itemBuilder: (_, i) => _bookCard(
-          context,
-          books[i],
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modernShelfHeader(
+          emoji: emoji,
+          title: title,
+          color: _sectionColors[0],
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: cardHeight + 12,
+          child: PageView.builder(
+            physics: const PageScrollPhysics(),
+            padEnds: false,
+            itemCount: books.length,
+            controller: _booksController,
+            itemBuilder: (_, i) => _bookCard(
+              context,
+              books[i],
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -832,11 +864,20 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           decoration: BoxDecoration(
             color: AppTheme.white,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _sectionColors[0].withValues(alpha: 0.45),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _sectionColors[0].withValues(alpha: 0.3),
+                color: _sectionColors[0].withValues(alpha: 0.45),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: AppTheme.deepNavy.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -855,8 +896,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                       ? cached.CachedNetworkImage(
                           imageUrl: resolvedCover,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-memCacheWidth: 300,
+                          filterQuality: FilterQuality.medium,
+                          memCacheWidth: 300,
                             memCacheHeight: 400,
                           placeholder: (_, _) => _coverFallbackFull(
                             category ?? '📖',
@@ -910,15 +951,26 @@ memCacheWidth: 300,
                         ),
                         decoration: BoxDecoration(
                           color: AppTheme.sunnyYellow,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          'READ',
-                          style: AppStyles.nunito(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.deepNavy,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.menu_book_rounded,
+                              size: 12,
+                              color: AppTheme.deepNavy,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'READ',
+                              style: AppStyles.nunito(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.deepNavy,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -941,25 +993,41 @@ memCacheWidth: 300,
   //  AUDIO BOOKS SHELF — 80% width, 50/50 image/text
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _audioBooksShelf(BuildContext ctx, List<BookModel> audiobooks) {
+  Widget _audioBooksShelf(
+    BuildContext ctx,
+    List<BookModel> audiobooks, {
+    required String emoji,
+    required String title,
+  }) {
     final screenWidth = MediaQuery.of(ctx).size.width;
     final cardWidth = screenWidth * 0.60;
-    const cardHeight = 110.0;
+    const cardHeight = 118.0;
 
-    return SizedBox(
-      height: cardHeight + 12,
-      child: PageView.builder(
-        physics: const PageScrollPhysics(),
-        padEnds: false,
-        itemCount: audiobooks.length,
-        controller: _audioController,
-        itemBuilder: (_, i) => _audioBookCard(
-          ctx,
-          audiobooks[i],
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modernShelfHeader(
+          emoji: emoji,
+          title: title,
+          color: _sectionColors[1],
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: cardHeight + 12,
+          child: PageView.builder(
+            physics: const PageScrollPhysics(),
+            padEnds: false,
+            itemCount: audiobooks.length,
+            controller: _audioController,
+            itemBuilder: (_, i) => _audioBookCard(
+              ctx,
+              audiobooks[i],
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -986,11 +1054,20 @@ memCacheWidth: 300,
           decoration: BoxDecoration(
             color: AppTheme.white,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _sectionColors[1].withValues(alpha: 0.45),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _sectionColors[1].withValues(alpha: 0.3),
+                color: _sectionColors[1].withValues(alpha: 0.45),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: AppTheme.deepNavy.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -1009,8 +1086,8 @@ memCacheWidth: 300,
                       ? cached.CachedNetworkImage(
                           imageUrl: resolvedCover,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-memCacheWidth: 300,
+                          filterQuality: FilterQuality.medium,
+                          memCacheWidth: 300,
                             memCacheHeight: 400,
                           placeholder: (_, _) =>
                               _coverFallbackFull('🎧', _sectionColors[1]),
@@ -1060,15 +1137,26 @@ memCacheWidth: 300,
                         ),
                         decoration: BoxDecoration(
                           color: AppTheme.playfulRed.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          '🎧 LISTEN',
-                          style: AppStyles.nunito(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.playfulRed,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.headphones_rounded,
+                              size: 12,
+                              color: AppTheme.playfulRed,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'LISTEN',
+                              style: AppStyles.nunito(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.playfulRed,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1085,25 +1173,41 @@ memCacheWidth: 300,
   //  MUSIC SHELF — Modern 80% cards
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _musicShelf(BuildContext ctx, List<Map<String, dynamic>> tracks) {
+  Widget _musicShelf(
+    BuildContext ctx,
+    List<Map<String, dynamic>> tracks, {
+    required String emoji,
+    required String title,
+  }) {
     final screenWidth = MediaQuery.of(ctx).size.width;
     final cardWidth = screenWidth * 0.60;
-    const cardHeight = 110.0;
+    const cardHeight = 118.0;
 
-    return SizedBox(
-      height: cardHeight + 12,
-      child: PageView.builder(
-        physics: const PageScrollPhysics(),
-        padEnds: false,
-        itemCount: tracks.length,
-        controller: _musicController,
-        itemBuilder: (_, i) => _musicCard(
-          ctx,
-          tracks[i],
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modernShelfHeader(
+          emoji: emoji,
+          title: title,
+          color: _sectionColors[2],
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: cardHeight + 12,
+          child: PageView.builder(
+            physics: const PageScrollPhysics(),
+            padEnds: false,
+            itemCount: tracks.length,
+            controller: _musicController,
+            itemBuilder: (_, i) => _musicCard(
+              ctx,
+              tracks[i],
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1128,11 +1232,20 @@ memCacheWidth: 300,
           decoration: BoxDecoration(
             color: AppTheme.white,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _sectionColors[2].withValues(alpha: 0.45),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _sectionColors[2].withValues(alpha: 0.3),
+                color: _sectionColors[2].withValues(alpha: 0.45),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: AppTheme.deepNavy.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -1151,8 +1264,8 @@ memCacheWidth: 300,
                       ? cached.CachedNetworkImage(
                           imageUrl: resolvedCover,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-memCacheWidth: 300,
+                          filterQuality: FilterQuality.medium,
+                          memCacheWidth: 300,
                             memCacheHeight: 400,
                           placeholder: (_, _) =>
                               _coverFallbackFull('🎵', _sectionColors[2]),
@@ -1201,16 +1314,27 @@ memCacheWidth: 300,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.mintGreen,
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppTheme.mintGreen.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          'PLAY',
-                          style: AppStyles.nunito(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.deepNavy,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.music_note_rounded,
+                              size: 12,
+                              color: AppTheme.deepNavy,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'PLAY',
+                              style: AppStyles.nunito(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.deepNavy,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1227,25 +1351,41 @@ memCacheWidth: 300,
   //  STORIES SHELF — 80% width, 50/50 image/text
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _storiesShelf(BuildContext ctx, List<Map<String, dynamic>> stories) {
+  Widget _storiesShelf(
+    BuildContext ctx,
+    List<Map<String, dynamic>> stories, {
+    required String emoji,
+    required String title,
+  }) {
     final screenWidth = MediaQuery.of(ctx).size.width;
     final cardWidth = screenWidth * 0.60;
-    const cardHeight = 110.0;
+    const cardHeight = 118.0;
 
-    return SizedBox(
-      height: cardHeight + 12,
-      child: PageView.builder(
-        physics: const PageScrollPhysics(),
-        padEnds: false,
-        itemCount: stories.length,
-        controller: _storiesController,
-        itemBuilder: (_, i) => _storyCard(
-          ctx,
-          stories[i],
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modernShelfHeader(
+          emoji: emoji,
+          title: title,
+          color: _sectionColors[3],
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: cardHeight + 12,
+          child: PageView.builder(
+            physics: const PageScrollPhysics(),
+            padEnds: false,
+            itemCount: stories.length,
+            controller: _storiesController,
+            itemBuilder: (_, i) => _storyCard(
+              ctx,
+              stories[i],
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1270,11 +1410,20 @@ memCacheWidth: 300,
           decoration: BoxDecoration(
             color: AppTheme.white,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _sectionColors[3].withValues(alpha: 0.45),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _sectionColors[3].withValues(alpha: 0.3),
+                color: _sectionColors[3].withValues(alpha: 0.45),
                 blurRadius: 12,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: AppTheme.deepNavy.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -1293,8 +1442,8 @@ memCacheWidth: 300,
                       ? cached.CachedNetworkImage(
                           imageUrl: resolvedCover,
                           fit: BoxFit.cover,
-                          filterQuality: FilterQuality.high,
-memCacheWidth: 300,
+                          filterQuality: FilterQuality.medium,
+                          memCacheWidth: 300,
                             memCacheHeight: 400,
                           placeholder: (_, _) =>
                               _coverFallbackFull('📖', _sectionColors[3]),
@@ -1343,16 +1492,27 @@ memCacheWidth: 300,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.softPurple.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppTheme.softPurple.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          '📖 READ',
-                          style: AppStyles.nunito(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.softPurple,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.auto_stories_rounded,
+                              size: 12,
+                              color: AppTheme.deepPurple,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'STORY',
+                              style: AppStyles.nunito(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.deepPurple,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1602,4 +1762,103 @@ memCacheWidth: 300,
 
   String? _s(dynamic v) => v is String ? v : null;
 
+}
+
+// ═══════════════════════════════════════════════
+//  ANIMATED SHIMMER LOADING
+// ═══════════════════════════════════════════════
+
+class _DiscoveryShimmer extends StatefulWidget {
+  const _DiscoveryShimmer();
+
+  @override
+  State<_DiscoveryShimmer> createState() => _DiscoveryShimmerState();
+}
+
+class _DiscoveryShimmerState extends State<_DiscoveryShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Hero shimmer
+            _shimmerBox(height: 280, radius: 24, t: t),
+            const SizedBox(height: 20),
+            // Category pills shimmer
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: 4,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, _) => _shimmerBox(
+                  width: 90,
+                  height: 40,
+                  radius: 999,
+                  t: t,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Shelf shimmer rows
+            ...List.generate(
+              3,
+              (s) => Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: _shimmerBox(height: 176, radius: 28, t: t),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBox({
+    double? width,
+    required double height,
+    required double radius,
+    required double t,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1 + 2 * t, -1),
+          end: Alignment(-1 + 2 * t + 0.8, 1),
+          colors: [
+            AppTheme.white,
+            AppTheme.white.withValues(alpha: 0.55),
+            AppTheme.white,
+          ],
+          stops: const [0.35, 0.5, 0.65],
+        ),
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: AppTheme.skyBlue.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
 }

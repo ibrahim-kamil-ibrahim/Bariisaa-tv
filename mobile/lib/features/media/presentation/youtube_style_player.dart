@@ -66,6 +66,25 @@ class _YoutubeStylePlayerState extends State<YoutubeStylePlayer>
   final ValueNotifier<Duration> _position =
       ValueNotifier<Duration>(Duration.zero);
 
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   WidgetsBinding.instance.addObserver(this);
+  //   _iconAnim = AnimationController(
+  //     vsync: this,
+  //     duration: const Duration(milliseconds: 200),
+  //   );
+  //   _hintAnim = AnimationController(
+  //     vsync: this,
+  //     duration: const Duration(milliseconds: 300),
+  //   );
+  //   _iconAnim!.addStatusListener((status) {
+  //     if (status == AnimationStatus.completed) {
+  //       _iconAnim?.reverse();
+  //     }
+  //   });
+  // }
+
   bool get _ended {
     final d = _c.value.duration;
     return d.inMilliseconds > 0 &&

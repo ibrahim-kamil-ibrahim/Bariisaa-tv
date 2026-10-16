@@ -5,6 +5,7 @@ import {
   LinearProgress,
   IconButton,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import {
   Upload,
@@ -14,6 +15,7 @@ import {
   Image as ImageIcon,
   FileText,
   Music,
+  AlertTriangle,
 } from 'lucide-react';
 import { palette, typography } from '../../theme';
 
@@ -26,12 +28,17 @@ export interface UploadFileEntry {
   previewUrl?: string;
   chapterTitle?: string;
   trackOrder?: number;
+  width?: number;
+  height?: number;
 }
 
 interface FileUploadProps {
   accept: string;
   maxSize: number;
   maxSizeMessage: string;
+  requiredWidth?: number;
+  requiredHeight?: number;
+  showDimensions?: boolean;
   files: UploadFileEntry[];
   onFilesChange: (files: UploadFileEntry[]) => void;
   onUpload: (entry: UploadFileEntry) => Promise<void>;
@@ -39,6 +46,7 @@ interface FileUploadProps {
   previewType?: 'image' | 'audio' | 'document';
   label: string;
   subtitle?: string;
+  validationError?: string;
 }
 
 const fileTypeIcons: Record<string, React.ReactNode> = {
@@ -51,6 +59,9 @@ export default function FileUpload({
   accept,
   maxSize,
   maxSizeMessage,
+  requiredWidth,
+  requiredHeight,
+  showDimensions = false,
   files,
   onFilesChange,
   onUpload,
@@ -58,6 +69,7 @@ export default function FileUpload({
   previewType = 'document',
   label,
   subtitle,
+  validationError,
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -68,6 +80,8 @@ export default function FileUpload({
       const entries: UploadFileEntry[] = [];
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
+
+        // Check file size
         if (file.size > maxSize) {
           entries.push({
             id: crypto.randomUUID(),
@@ -78,20 +92,38 @@ export default function FileUpload({
           });
           continue;
         }
+
+        // Check image dimensions if required
         let previewUrl: string | undefined;
-        if (previewType === 'image') {
+        let width: number | undefined;
+        let height: number | undefined;
+
+        if (previewType === 'image' && file.type.startsWith('image/')) {
+          const img = new Image();
+          img.onload = () => {
+            width = img.width;
+            height = img.height;
+            entries[entries.length - 1].width = width;
+            entries[entries.length - 1].height = height;
+          };
+          img.onerror = () => {
+            width = 0;
+            height = 0;
+          };
           previewUrl = URL.createObjectURL(file);
-        } else if (previewType === 'audio') {
-          previewUrl = URL.createObjectURL(file);
+          img.src = URL.createObjectURL(file);
         }
+
         entries.push({
           id: crypto.randomUUID(),
           file,
           progress: 0,
           status: 'pending',
           previewUrl,
-          chapterTitle: file.name.replace(/\.[^/.]+$/, ''),
+          chapterTitle: file.name.replace(/\\.[^/.]+$/, ''),
           trackOrder: files.length + i + 1,
+          width,
+          height,
         });
       }
       onFilesChange([...files, ...entries]);
@@ -129,25 +161,46 @@ export default function FileUpload({
   );
 
   const uploadAll = useCallback(async () => {
-    const pending = files.filter((f) => f.status === 'pending' || f.status === 'error');
+    const pending = files.filter(
+      (f) => f.status === 'pending' || f.status === 'error'
+    );
     for (const entry of pending) {
-      onFilesChange(files.map((f) => (f.id === entry.id ? { ...f, status: 'uploading' as const } : f)));
+      onFilesChange(
+        files.map((f) =>
+          f.id === entry.id ? { ...f, status: 'uploading' as const } : f
+        )
+      );
       try {
         await onUpload(entry);
         onFilesChange(
-          files.map((f) =>
-            f.id === entry.id ? { ...f, status: 'done' as const, progress: 100 } : f
+          files.map(
+            (f) =>
+              f.id === entry.id
+                ? { ...f, status: 'done' as const, progress: 100 }
+                : f
           )
         );
       } catch {
         onFilesChange(
-          files.map((f) =>
-            f.id === entry.id ? { ...f, status: 'error' as const, error: 'Upload failed' } : f
+          files.map(
+            (f) =>
+              f.id === entry.id
+                ? { ...f, status: 'error' as const, error: 'Upload failed' }
+                : f
           )
         );
       }
     }
   }, [files, onFilesChange, onUpload]);
+
+  // Check if any pending file fails dimension validation
+  const hasDimensionalIssue = files.some(
+    (f) =>
+      f.status === 'pending' &&
+      requiredWidth !== undefined &&
+      requiredHeight !== undefined &&
+      (f.width === undefined || f.width !== requiredWidth || f.height !== requiredHeight)
+  );
 
   return (
     <Box>
@@ -160,8 +213,26 @@ export default function FileUpload({
         </Typography>
       )}
 
+      {/* Validation error banner */}
+      {(hasDimensionalIssue || validationError) && (
+        <Alert
+          severity="error"
+          icon={<AlertTriangle size={16} />}
+          sx={{ mb: 2 }}
+        >
+          {hasDimensionalIssue
+            ? `Image must be ${requiredWidth}x${requiredHeight}px — current size: ${files.find((f) => f.status === 'pending')?.width || 'unknown'}x${
+                files.find((f) => f.status === 'pending')?.height || 'unknown'
+              }px`
+            : validationError}
+        </Alert>
+      )}
+
       <Box
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
@@ -182,7 +253,10 @@ export default function FileUpload({
           hidden
           accept={accept}
           multiple={multiple}
-          onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+          onChange={(e) => {
+            addFiles(e.target.files);
+            e.target.value = '';
+          }}
         />
         <Box sx={{ color: palette.inkMuted, mb: 1 }}>
           <Upload size={32} strokeWidth={1} />
@@ -191,7 +265,10 @@ export default function FileUpload({
           Drag & drop or <strong>browse</strong>
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          {accept} — {maxSizeMessage}
+          {accept} — Max: {maxSizeMessage}
+          {requiredWidth && requiredHeight && (
+            <> &nbsp;|&nbsp; Required: {requiredWidth}×{requiredHeight}px</>
+          )}
         </Typography>
       </Box>
 
@@ -272,6 +349,9 @@ export default function FileUpload({
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {(entry.file.size / (1024 * 1024)).toFixed(1)} MB
+                  {showDimensions && entry.width && entry.height && (
+                    <> · {entry.width}×{entry.height} px</>
+                  )}
                 </Typography>
                 {entry.status === 'uploading' && (
                   <LinearProgress

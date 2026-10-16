@@ -86,3 +86,23 @@ export async function refundPaymentHandler(req: AuthRequest, res: Response, next
   }
 }
 
+export async function approveManualPaymentHandler(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { paymentId, note } = req.body;
+    const result = await paymentService.approveManualPayment(paymentId, note);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function rejectManualPaymentHandler(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { paymentId, reason } = req.body;
+    const result = await paymentService.rejectManualPayment(paymentId, reason);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+

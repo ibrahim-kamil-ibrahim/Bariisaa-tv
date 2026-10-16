@@ -82,7 +82,10 @@ export interface Author {
   name: string;
   bio?: string;
   photoUrl?: string | null;
-  bookCount: number;
+  _count?: { books: number; musicTracks: number; stories: number };
+  bookCount?: number;
+  musicTrackCount?: number;
+  storyCount?: number;
   createdAt: string;
   updatedAt: string;
 }

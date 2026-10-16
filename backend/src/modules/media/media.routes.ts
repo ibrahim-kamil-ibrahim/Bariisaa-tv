@@ -5,7 +5,7 @@ import { authenticate, optionalAuth } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { auditLog } from '../../middleware/auditLog';
 import { validate } from '../../middleware/validate';
-import { upload } from '../../middleware/upload';
+import { upload, imageValidations, validateUpload } from '../../middleware/upload';
 import { uploadLimiter } from '../../middleware/rateLimiter';
 import { videoUploadUrlSchema, thumbnailUploadUrlSchema } from './video.validation';
 
@@ -17,8 +17,8 @@ router.put('/folders/:id', authenticate, authorize('media:update'), auditLog('up
 router.delete('/folders/:id', authenticate, authorize('media:delete'), auditLog('delete', 'media-folder'), mediaController.deleteFolder);
 router.get('/folders', authenticate, mediaController.listFolders);
 
-// Files
-router.post('/files', authenticate, authorize('media:create'), uploadLimiter, upload.single('file'), auditLog('create', 'media-file'), mediaController.uploadFile);
+// Files — with image dimension validation
+router.post('/files', authenticate, authorize('media:create'), uploadLimiter, validateUpload(imageValidations.cover), upload.single('file'), auditLog('create', 'media-file'), mediaController.uploadFile);
 router.put('/files/:id', authenticate, authorize('media:update'), auditLog('update', 'media-file'), mediaController.updateFile);
 router.delete('/files/:id', authenticate, authorize('media:delete'), auditLog('delete', 'media-file'), mediaController.deleteFile);
 router.post('/files/:id/restore', authenticate, authorize('media:update'), mediaController.restoreFile);
@@ -30,6 +30,9 @@ router.get('/stats', authenticate, mediaController.getStats);
 // Playback is optionalAuth: PUBLIC videos are watchable anonymously (like free
 // books/audio), while PREMIUM access is enforced inside the service.
 router.post('/videos/upload-url', authenticate, authorize('media:create'), validate(videoUploadUrlSchema), auditLog('create', 'media-video'), videoController.requestVideoUploadUrl);
+// Local fallback (R2 unconfigured): raw PUT of video bytes; express.json/urlencoded
+// skip video/* content types, so the request stream is intact here.
+router.put('/videos/:id/local-upload', authenticate, authorize('media:update'), uploadLimiter, videoController.uploadVideoLocal);
 router.post('/videos/:id/complete', authenticate, authorize('media:update'), auditLog('update', 'media-video'), videoController.completeVideoUpload);
 router.get('/videos/:id/play', optionalAuth, videoController.getVideoPlaybackUrl);
 router.get('/videos/:id', authenticate, videoController.getVideo);

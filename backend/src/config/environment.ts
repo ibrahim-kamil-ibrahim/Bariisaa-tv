@@ -57,7 +57,6 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().min(32),
   ENCRYPTION_IV_LENGTH: z.coerce.number().default(16),
   GOOGLE_CLIENT_IDS: z.string().optional(),
-  TELEGRAM_BOT_TOKEN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

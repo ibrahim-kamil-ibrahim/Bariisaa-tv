@@ -52,9 +52,11 @@ export async function listHealthTips(_req: AuthRequest, res: Response, next: Nex
   } catch (error) { next(error); }
 }
 
-export async function listDoctorProfiles(_req: AuthRequest, res: Response, next: NextFunction) {
+export async function listDoctorProfiles(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const data = await doctorService.listDoctorProfiles();
+    // super_admin sees unavailable doctors too, so the admin panel can manage them.
+    const showAll = (req.userRoles || []).includes('super_admin');
+    const data = await doctorService.listDoctorProfiles(showAll);
     successResponse(res, data, 'Doctor profiles retrieved');
   } catch (error) { next(error); }
 }

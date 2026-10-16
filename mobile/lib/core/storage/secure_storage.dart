@@ -7,6 +7,8 @@ class SecureStorageService {
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
+  final Map<String, String?> _cache = {};
+
   bool _devModeCache = false;
   bool _devModeChecked = false;
 
@@ -24,6 +26,7 @@ class SecureStorageService {
           errorString.contains('unwrap key')) {
         try {
           await _storage.deleteAll();
+          _cache.clear();
         } catch (_) {}
         try {
           return await operation();
@@ -47,6 +50,7 @@ class SecureStorageService {
           errorString.contains('unwrap key')) {
         try {
           await _storage.deleteAll();
+          _cache.clear();
         } catch (_) {}
         try {
           await operation();
@@ -55,36 +59,39 @@ class SecureStorageService {
     }
   }
 
-  Future<String?> read({required String key}) =>
-      _safeReadString(() => _storage.read(key: key));
+  Future<String?> read({required String key}) async {
+    if (_cache.containsKey(key)) return _cache[key];
+    final val = await _safeReadString(() => _storage.read(key: key));
+    _cache[key] = val;
+    return val;
+  }
 
-  Future<void> write({required String key, required String value}) =>
-      _safeWrite(() => _storage.write(key: key, value: value));
+  Future<void> write({required String key, required String value}) async {
+    await _safeWrite(() => _storage.write(key: key, value: value));
+    _cache[key] = value;
+  }
 
   Future<String?> getAccessToken() =>
-      _safeReadString(() => _storage.read(key: AppConstants.accessTokenKey));
+      read(key: AppConstants.accessTokenKey);
   Future<void> setAccessToken(String token) =>
-      _safeWrite(() => _storage.write(key: AppConstants.accessTokenKey, value: token));
+      write(key: AppConstants.accessTokenKey, value: token);
 
   Future<String?> getRefreshToken() =>
-      _safeReadString(() => _storage.read(key: AppConstants.refreshTokenKey));
+      read(key: AppConstants.refreshTokenKey);
   Future<void> setRefreshToken(String token) =>
-      _safeWrite(() => _storage.write(key: AppConstants.refreshTokenKey, value: token));
+      write(key: AppConstants.refreshTokenKey, value: token);
 
-  Future<String?> getUserId() =>
-      _safeReadString(() => _storage.read(key: AppConstants.userIdKey));
+  Future<String?> getUserId() => read(key: AppConstants.userIdKey);
   Future<void> setUserId(String id) =>
-      _safeWrite(() => _storage.write(key: AppConstants.userIdKey, value: id));
+      write(key: AppConstants.userIdKey, value: id);
 
-  Future<String?> getCachedUser() =>
-      _safeReadString(() => _storage.read(key: AppConstants.cachedUserKey));
+  Future<String?> getCachedUser() => read(key: AppConstants.cachedUserKey);
   Future<void> setCachedUser(String json) =>
-      _safeWrite(() => _storage.write(key: AppConstants.cachedUserKey, value: json));
+      write(key: AppConstants.cachedUserKey, value: json);
 
-  Future<String?> getDeviceId() =>
-      _safeReadString(() => _storage.read(key: AppConstants.deviceIdKey));
+  Future<String?> getDeviceId() => read(key: AppConstants.deviceIdKey);
   Future<void> setDeviceId(String id) =>
-      _safeWrite(() => _storage.write(key: AppConstants.deviceIdKey, value: id));
+      write(key: AppConstants.deviceIdKey, value: id);
 
   Future<void> saveTokens({
     required String accessToken,
@@ -95,29 +102,28 @@ class SecureStorageService {
   }
 
   Future<bool> isLoggedIn() async {
-    final accessToken = await getAccessToken();
-    if (accessToken != null) return true;
-    final refreshToken = await getRefreshToken();
-    return refreshToken != null;
+    if (await getAccessToken() != null) return true;
+    return await getRefreshToken() != null;
   }
 
   Future<bool> isDevMode() async {
     if (kReleaseMode) return false;
-    final val = await _safeReadString(() => _storage.read(key: AppConstants.devModeKey));
+    final val = await read(key: AppConstants.devModeKey);
     _devModeCache = val == 'true';
     _devModeChecked = true;
     return _devModeCache;
   }
 
   Future<void> setDevMode(bool enabled) async {
-    await _safeWrite(() => _storage.write(
+    await write(
       key: AppConstants.devModeKey,
       value: enabled ? 'true' : 'false',
-    ));
+    );
   }
 
   Future<void> clearDevMode() async {
     await _safeWrite(() => _storage.delete(key: AppConstants.devModeKey));
+    _cache.remove(AppConstants.devModeKey);
   }
 
   Future<void> clearAuthData() async {
@@ -126,29 +132,37 @@ class SecureStorageService {
     await _safeWrite(() => _storage.delete(key: AppConstants.userIdKey));
     await _safeWrite(() => _storage.delete(key: AppConstants.deviceIdKey));
     await _safeWrite(() => _storage.delete(key: AppConstants.cachedUserKey));
+    _cache.remove(AppConstants.accessTokenKey);
+    _cache.remove(AppConstants.refreshTokenKey);
+    _cache.remove(AppConstants.userIdKey);
+    _cache.remove(AppConstants.deviceIdKey);
+    _cache.remove(AppConstants.cachedUserKey);
   }
 
-  Future<void> clearHasUsedGuest() =>
-      _safeWrite(() => _storage.delete(key: 'has_used_guest'));
+  Future<void> clearHasUsedGuest() async {
+    await _safeWrite(() => _storage.delete(key: 'has_used_guest'));
+    _cache.remove('has_used_guest');
+  }
 
   Future<bool> hasUsedGuest() async {
-    final val = await _safeReadString(() => _storage.read(key: 'has_used_guest'));
+    final val = await read(key: 'has_used_guest');
     return val == 'true';
   }
 
   Future<void> setHasUsedGuest() async {
-    await _safeWrite(() => _storage.write(key: 'has_used_guest', value: 'true'));
+    await write(key: 'has_used_guest', value: 'true');
   }
 
   Future<void> clearAll() async {
     final usedGuest = await hasUsedGuest();
-    final guestProfile = await _safeReadString(() => _storage.read(key: 'guest_profile'));
+    final guestProfile = await read(key: 'guest_profile');
     await _safeWrite(() => _storage.deleteAll());
+    _cache.clear();
     if (usedGuest) {
       await setHasUsedGuest();
     }
     if (guestProfile != null) {
-      await _safeWrite(() => _storage.write(key: 'guest_profile', value: guestProfile));
+      await write(key: 'guest_profile', value: guestProfile);
     }
   }
 }

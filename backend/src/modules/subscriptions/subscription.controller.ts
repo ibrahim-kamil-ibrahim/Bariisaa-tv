@@ -59,8 +59,12 @@ export async function deletePlan(req: AuthRequest, res: Response, next: NextFunc
 
 export async function subscribe(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { planId, couponCode, gateway } = req.body;
-    const result = await subscriptionService.subscribe(req.userId!, planId, couponCode, gateway);
+    const { planId, couponCode, gateway, channel, accountName, reference } = req.body;
+    const result = await subscriptionService.subscribe(req.userId!, planId, couponCode, gateway, {
+      channel,
+      accountName,
+      reference,
+    });
     successResponse(res, result, 'Subscription initiated successfully', 201);
   } catch (error) {
     next(error);

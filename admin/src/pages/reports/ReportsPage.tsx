@@ -46,6 +46,14 @@ import PageHeader from '../../components/PageHeader';
 import { palette, typography } from '../../theme';
 import api, { BASE_URL } from '../../services/api';
 
+function ChartEmpty({ height }: { height: number }) {
+  return (
+    <Box sx={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, backgroundColor: palette.warmGrayLight }}>
+      <Typography variant="body2" color="text.secondary">No data for this period</Typography>
+    </Box>
+  );
+}
+
 export default function ReportsPage() {
   const queryClient = useQueryClient();
   const [mainTab, setMainTab] = useState(0);
@@ -153,7 +161,9 @@ export default function ReportsPage() {
               <Card>
                 <CardContent>
                   <Typography variant="h6" fontFamily={typography.serif} fontWeight={700} mb={2}>Revenue {revenueData?.totalRevenue ? `(Total: $${revenueData.totalRevenue.toFixed(2)})` : ''}</Typography>
-                  {revLoading ? <Skeleton variant="rounded" height={300} sx={{ borderRadius: 2 }} /> : (
+                  {revLoading ? <Skeleton variant="rounded" height={300} sx={{ borderRadius: 2 }} /> : (revenueData?.periodRevenue || []).length === 0 ? (
+                    <ChartEmpty height={300} />
+                  ) : (
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={revenueData?.periodRevenue || []}>
                         <CartesianGrid strokeDasharray="3 3" stroke={palette.warmGrayLight} />
@@ -172,7 +182,9 @@ export default function ReportsPage() {
               <Card>
                 <CardContent>
                   <Typography variant="h6" fontFamily={typography.serif} fontWeight={700} mb={2}>New Users (Total: {userData?.total || 0})</Typography>
-                  {userLoading ? <Skeleton variant="rounded" height={300} sx={{ borderRadius: 2 }} /> : (
+                  {userLoading ? <Skeleton variant="rounded" height={300} sx={{ borderRadius: 2 }} /> : (userData?.signups || []).length === 0 ? (
+                    <ChartEmpty height={300} />
+                  ) : (
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={userData?.signups || []}>
                         <CartesianGrid strokeDasharray="3 3" stroke={palette.warmGrayLight} />
@@ -190,7 +202,17 @@ export default function ReportsPage() {
               <Card>
                 <CardContent>
                   <Typography variant="h6" fontFamily={typography.serif} fontWeight={700} mb={2}>Subscriptions</Typography>
-                  {subLoading ? <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} /> : (
+                  {subLoading ? <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} /> : (subData?.trend || []).length === 0 ? (
+                    <Box>
+                      <Grid container spacing={2} mb={2}>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Active</Typography><Typography variant="h6">{subData?.active || 0}</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Canceled</Typography><Typography variant="h6">{subData?.canceled || 0}</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Expired</Typography><Typography variant="h6">{subData?.expired || 0}</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Churn Rate</Typography><Typography variant="h6">{subData?.churnRate || 0}%</Typography></Grid>
+                      </Grid>
+                      <ChartEmpty height={200} />
+                    </Box>
+                  ) : (
                     <Box>
                       <Grid container spacing={2} mb={2}>
                         <Grid item xs={3}><Typography variant="body2" color="text.secondary">Active</Typography><Typography variant="h6">{subData?.active || 0}</Typography></Grid>
@@ -218,7 +240,17 @@ export default function ReportsPage() {
               <Card>
                 <CardContent>
                   <Typography variant="h6" fontFamily={typography.serif} fontWeight={700} mb={2}>Engagement</Typography>
-                  {engagementLoading ? <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} /> : (
+                  {engagementLoading ? <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} /> : (engagementData?.dailyActivity || []).length === 0 ? (
+                    <Box>
+                      <Grid container spacing={2} mb={2}>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Reading Sessions</Typography><Typography variant="h6">{engagementData?.totalReadingSessions || 0}</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Listening Sessions</Typography><Typography variant="h6">{engagementData?.totalListeningSessions || 0}</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Avg Reading</Typography><Typography variant="h6">{engagementData?.avgReadingTimeMinutes || 0}m</Typography></Grid>
+                        <Grid item xs={3}><Typography variant="body2" color="text.secondary">Avg Listening</Typography><Typography variant="h6">{engagementData?.avgListeningTimeMinutes || 0}m</Typography></Grid>
+                      </Grid>
+                      <ChartEmpty height={200} />
+                    </Box>
+                  ) : (
                     <Box>
                       <Grid container spacing={2} mb={2}>
                         <Grid item xs={3}><Typography variant="body2" color="text.secondary">Reading Sessions</Typography><Typography variant="h6">{engagementData?.totalReadingSessions || 0}</Typography></Grid>

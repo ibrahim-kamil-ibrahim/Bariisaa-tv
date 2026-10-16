@@ -22,6 +22,9 @@ class SubscriptionRepository {
     required String planId,
     required String paymentGateway,
     String? couponCode,
+    String? channel,
+    String? accountName,
+    String? reference,
   }) async {
     if (!await getIt<SecureStorageService>().isLoggedIn()) {
       throw Exception('Not authenticated');
@@ -31,6 +34,9 @@ class SubscriptionRepository {
       'gateway': paymentGateway.toUpperCase(),
     };
     if (couponCode != null) data['couponCode'] = couponCode;
+    if (channel != null) data['channel'] = channel;
+    if (accountName != null) data['accountName'] = accountName;
+    if (reference != null) data['reference'] = reference;
     final response = await _apiClient.post(
       '/subscriptions/subscribe',
       data: data,

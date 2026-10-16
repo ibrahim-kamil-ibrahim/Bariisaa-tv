@@ -42,6 +42,15 @@ class _MusicPlayerContent extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.deepNavy,
       body: BlocBuilder<MusicPlayerCubit, MusicPlayerState>(
+        buildWhen: (prev, curr) {
+          if (prev is! MusicPlayerLoaded || curr is! MusicPlayerLoaded) {
+            return true;
+          }
+          if (prev.position != curr.position) {
+            return false;
+          }
+          return true;
+        },
         builder: (context, state) {
           if (state is MusicPlayerLoading)
             return const Center(child: LoadingMascot(message: 'Loading...'));
@@ -218,40 +227,55 @@ class _MusicPlayerContent extends StatelessWidget {
                         alpha: 0.15,
                       ),
                     ),
-                    child: Slider(
-                      value: state.duration.inSeconds > 0
-                          ? state.position.inSeconds.toDouble()
-                          : 0,
-                      max: state.duration.inSeconds > 0
-                          ? state.duration.inSeconds.toDouble()
-                          : 1,
-                      onChanged: (v) => context.read<MusicPlayerCubit>().seek(
-                        Duration(seconds: v.toInt()),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _formatDuration(state.position),
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                        Text(
-                          '-${_formatDuration(state.duration - state.position)}',
-                          style: AppStyles.nunito(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
+                    child: BlocBuilder<MusicPlayerCubit, MusicPlayerState>(
+                      builder: (context, sliderState) {
+                        if (sliderState is! MusicPlayerLoaded) {
+                          return const SizedBox.shrink();
+                        }
+                        return Column(
+                          children: [
+                            Slider(
+                              value: sliderState.duration.inSeconds > 0
+                                  ? sliderState.position.inSeconds.toDouble()
+                                  : 0,
+                              max: sliderState.duration.inSeconds > 0
+                                  ? sliderState.duration.inSeconds.toDouble()
+                                  : 1,
+                              onChanged: (v) =>
+                                  context.read<MusicPlayerCubit>().seek(
+                                    Duration(seconds: v.toInt()),
+                                  ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDuration(sliderState.position),
+                                    style: AppStyles.nunito(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.white
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                  Text(
+                                    '-${_formatDuration(sliderState.duration - sliderState.position)}',
+                                    style: AppStyles.nunito(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.white
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

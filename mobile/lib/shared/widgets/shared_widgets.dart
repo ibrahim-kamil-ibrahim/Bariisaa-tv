@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:naik_mobile/shared/styles.dart';
@@ -15,6 +16,38 @@ import '../../features/profile/presentation/profile_cubit.dart';
 //  EXISTING SHIMMER WIDGETS (kept for loading states)
 // ═══════════════════════════════════════════════════════════════
 
+class _FallbackTicker implements TickerProvider {
+  @override
+  Ticker createTicker(TickerCallback onTick) => Ticker(onTick);
+}
+
+class ShimmerTickerHolder extends StatefulWidget {
+  const ShimmerTickerHolder();
+
+  @override
+  State<ShimmerTickerHolder> createState() => ShimmerTickerHolderState();
+}
+
+class ShimmerTickerHolderState extends State<ShimmerTickerHolder>
+    with TickerProviderStateMixin {
+  static TickerProvider? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = this;
+  }
+
+  @override
+  void dispose() {
+    if (identical(_ticker, this)) _ticker = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 class ShimmerLoading extends StatefulWidget {
   final double width;
   final double height;
@@ -29,25 +62,40 @@ class ShimmerLoading extends StatefulWidget {
   State<ShimmerLoading> createState() => _ShimmerLoadingState();
 }
 
-class _ShimmerLoadingState extends State<ShimmerLoading>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _ShimmerLoadingState extends State<ShimmerLoading> {
+  static AnimationController? _sharedController;
+  AnimationController? _localController;
   late Animation<double> _animation;
+
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-    _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
+    final ticker = ShimmerTickerHolderState._ticker;
+    if (ticker != null) {
+      _sharedController ??= AnimationController(
+        vsync: ticker,
+        duration: const Duration(milliseconds: 1500),
+      )..repeat();
+      _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+        CurvedAnimation(
+          parent: _sharedController!,
+          curve: Curves.easeInOutSine,
+        ),
+      );
+    } else {
+      _localController = AnimationController(
+        vsync: _FallbackTicker(),
+        duration: const Duration(milliseconds: 1500),
+      )..repeat();
+      _animation = Tween<double>(begin: -1.0, end: 2.0).animate(
+        CurvedAnimation(parent: _localController!, curve: Curves.easeInOutSine),
+      );
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _localController?.dispose();
     super.dispose();
   }
 

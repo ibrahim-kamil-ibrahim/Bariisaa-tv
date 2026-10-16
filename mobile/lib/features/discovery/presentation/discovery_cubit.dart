@@ -16,7 +16,9 @@ class DiscoveryCubit extends Cubit<DiscoveryState> {
     String? categoryId,
     String? language,
   }) async {
-    emit(DiscoveryLoading());
+    // Don't emit DiscoveryLoading — the home screen shares this cubit and
+    // would flash its full-page shimmer while search results load. The
+    // search screen shows its own loading indicator.
     try {
       final results = await _repository.searchBooks(
         query: query,
@@ -39,117 +41,127 @@ class DiscoveryCubit extends Cubit<DiscoveryState> {
   }
 
   void loadCategories() async {
-    emit(DiscoveryLoading());
-    var failures = 0;
+    // Only show the full-page shimmer on first load / explicit retry.
+    // Refreshing while content is already on screen must not blank the UI.
+    if (state is! CategoriesLoaded) emit(DiscoveryLoading());
 
     Future<T> guard<T>(Future<T> future, T fallback) async {
       try {
         return await future;
       } catch (e) {
-        failures++;
         if (kDebugMode) debugPrint('discovery load failed: $e');
         return fallback;
       }
     }
 
-    try {
-      final results = await Future.wait<dynamic>([
-        guard(_repository.getCategories(), <CategoryModel>[]),
-        guard(_repository.getRecommendations(limit: 8), <BookModel>[]),
-        guard(_repository.getExploreCategories(), <CategoryModel>[]),
-        guard(_repository.getMusicTracks(limit: 10), <Map<String, dynamic>>[]),
-        guard(_repository.getStories(limit: 10), <Map<String, dynamic>>[]),
-        guard(_repository.getFeaturedMusic(limit: 5), <Map<String, dynamic>>[]),
-      ]);
+    // First paint: categories + recommendations (above-the-fold content).
+    final first = await Future.wait<dynamic>([
+      guard(_repository.getCategories(), <CategoryModel>[]),
+      guard(_repository.getRecommendations(limit: 8), <BookModel>[]),
+    ]);
+    if (isClosed) return;
 
-      if (isClosed) return;
+    final categories = first[0] as List<CategoryModel>;
+    final books = first[1] as List<BookModel>;
+    final ebooks = books.where((b) => b.pdfFile != null).toList();
+    final audiobooks = books.where((b) => b.audioFile != null).toList();
 
-      if (failures >= results.length) {
-        emit(
-          const DiscoveryError(
-            'Unable to load the home screen. Check your internet connection and try again.',
-          ),
-        );
-        return;
-      }
-
-      final categories = results[0] as List<CategoryModel>;
-      final books = results[1] as List<BookModel>;
-      final ebooks = books.where((b) => b.pdfFile != null).toList();
-      final audiobooks = books.where((b) => b.audioFile != null).toList();
-
-      final featuredMusicList = results[5] as List<Map<String, dynamic>>;
-      final storiesList = results[4] as List<Map<String, dynamic>>;
-      final featuredContent = <Map<String, dynamic>>[];
-
-      for (final m in featuredMusicList) {
-        featuredContent.add({
-          'type': 'music',
-          'id': '${m['id'] ?? ''}',
-          'title': '${m['title'] ?? 'Untitled'}',
-          'subtitle': '${m['artist'] ?? ''}',
-          'coverUrl': m['coverUrl'],
-          'emoji': '🎵',
-          'badge': 'MUSIC',
-        });
-      }
-
-      for (final book in ebooks.take(3)) {
-        featuredContent.add({
-          'type': 'book',
-          'id': book.id,
-          'title': book.title,
-          'subtitle': book.authors.map((a) => a.name).join(', '),
-          'coverUrl': book.coverUrl,
-          'description': book.description,
-          'emoji': '📖',
-          'badge': 'BOOK',
-        });
-      }
-
-      for (final ab in audiobooks.take(3)) {
-        featuredContent.add({
-          'type': 'audio',
-          'id': ab.id,
-          'title': ab.title,
-          'subtitle': ab.authors.map((a) => a.name).join(', '),
-          'coverUrl': ab.coverUrl,
-          'description': ab.description,
-          'emoji': '🎧',
-          'badge': 'AUDIO',
-        });
-      }
-
-      for (final s in storiesList.take(3)) {
-        featuredContent.add({
-          'type': 'story',
-          'id': '${s['id'] ?? ''}',
-          'title': '${s['title'] ?? 'Untitled'}',
-          'subtitle': '${s['author'] ?? ''}',
-          'coverUrl': s['coverUrl'],
-          'emoji': '📖',
-          'badge': 'STORY',
-        });
-      }
-      featuredContent.shuffle();
-
-      if (isClosed) return;
+    if (categories.isEmpty && books.isEmpty) {
       emit(
-        CategoriesLoaded(
-          categories,
-          recommendations: books,
-          exploreCategories: results[2] as List<CategoryModel>,
-          ebooks: ebooks,
-          audiobooks: audiobooks,
-          music: results[3] as List<Map<String, dynamic>>,
-          stories: storiesList,
-          featuredContent: featuredContent.take(12).toList(),
+        const DiscoveryError(
+          'Unable to load the home screen. Check your internet connection and try again.',
         ),
       );
-    } catch (e) {
-      if (isClosed) return;
-      emit(DiscoveryError('Failed to load discovery: $e'));
+      return;
     }
+
+    emit(
+      CategoriesLoaded(
+        categories,
+        recommendations: books,
+        ebooks: ebooks,
+        audiobooks: audiobooks,
+      ),
+    );
+
+    // Supplementary shelves: load after first paint so the screen is never
+    // blocked by the slowest call.
+    final rest = await Future.wait<dynamic>([
+      guard(_repository.getExploreCategories(), <CategoryModel>[]),
+      guard(_repository.getMusicTracks(limit: 10), <Map<String, dynamic>>[]),
+      guard(_repository.getStories(limit: 10), <Map<String, dynamic>>[]),
+      guard(_repository.getFeaturedMusic(limit: 5), <Map<String, dynamic>>[]),
+    ]);
+    if (isClosed) return;
+
+    final featuredMusicList = rest[3] as List<Map<String, dynamic>>;
+    final storiesList = rest[2] as List<Map<String, dynamic>>;
+    final featuredContent = <Map<String, dynamic>>[];
+
+    for (final m in featuredMusicList) {
+      featuredContent.add({
+        'type': 'music',
+        'id': '${m['id'] ?? ''}',
+        'title': '${m['title'] ?? 'Untitled'}',
+        'subtitle': '${m['artist'] ?? ''}',
+        'coverUrl': m['coverUrl'],
+        'emoji': '🎵',
+        'badge': 'MUSIC',
+      });
+    }
+
+    for (final book in ebooks.take(3)) {
+      featuredContent.add({
+        'type': 'book',
+        'id': book.id,
+        'title': book.title,
+        'subtitle': book.authors.map((a) => a.name).join(', '),
+        'coverUrl': book.coverUrl,
+        'description': book.description,
+        'emoji': '📖',
+        'badge': 'BOOK',
+      });
+    }
+
+    for (final ab in audiobooks.take(3)) {
+      featuredContent.add({
+        'type': 'audio',
+        'id': ab.id,
+        'title': ab.title,
+        'subtitle': ab.authors.map((a) => a.name).join(', '),
+        'coverUrl': ab.coverUrl,
+        'description': ab.description,
+        'emoji': '🎧',
+        'badge': 'AUDIO',
+      });
+    }
+
+    for (final s in storiesList.take(3)) {
+      featuredContent.add({
+        'type': 'story',
+        'id': '${s['id'] ?? ''}',
+        'title': '${s['title'] ?? 'Untitled'}',
+        'subtitle': '${s['author'] ?? ''}',
+        'coverUrl': s['coverUrl'],
+        'emoji': '📖',
+        'badge': 'STORY',
+      });
+    }
+    featuredContent.shuffle();
+
+    if (isClosed) return;
+    emit(
+      CategoriesLoaded(
+        categories,
+        recommendations: books,
+        exploreCategories: rest[0] as List<CategoryModel>,
+        ebooks: ebooks,
+        audiobooks: audiobooks,
+        music: rest[1] as List<Map<String, dynamic>>,
+        stories: storiesList,
+        featuredContent: featuredContent.take(12).toList(),
+      ),
+    );
   }
 
   void loadBookDetail(String bookId) async {

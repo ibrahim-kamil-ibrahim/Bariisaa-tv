@@ -7,12 +7,13 @@ jest.mock('../../config/database', () => ({
 }));
 
 jest.mock('../../config/environment', () => ({
-  env: { R2_PUBLIC_URL: '' },
+  env: { R2_PUBLIC_URL: '', APP_URL: 'http://localhost:3000' },
 }));
 
 jest.mock('../../services/storage/r2.service', () => ({
   R2_UPLOAD_URL_EXPIRY: 900,
   R2_DOWNLOAD_URL_EXPIRY: 300,
+  isR2Configured: jest.fn(() => true),
   generateVideoKey: jest.fn((bookId: string, videoId: string) => `videos/${bookId}/${videoId}/original/video.mp4`),
   generateThumbnailKey: jest.fn(() => 'thumbnails/book/video/thumbnail.jpg'),
   createUploadUrl: jest.fn(),

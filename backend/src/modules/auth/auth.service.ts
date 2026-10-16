@@ -10,8 +10,14 @@ import { createOtp, verifyOtp } from '../../utils/otp';
 import { sendVerificationEmail, sendPasswordResetEmail, sendOtpEmail } from '../../utils/email';
 import { sendOtpSms, sendPasswordResetSms } from '../../utils/sms';
 import { getLockoutKey, isLockedOut, recordFailedAttempt, resetAttempts } from '../../utils/loginAttempts';
+import logger from '../../utils/logger';
 
 const BCRYPT_ROUNDS = 12;
+
+// How long after rotation a refresh token may still be presented without
+// being treated as theft. Covers benign races: lost response, app killed
+// before persisting the new token, hot restart, double-submit.
+const REFRESH_REUSE_GRACE_MS = 60_000;
 
 function normalizePhone(val: string): string {
   let digits = val.replace(/[\s\-()]/g, '');
@@ -414,6 +420,31 @@ export async function refreshAccessToken(refreshTokenValue: string) {
     throw new AppError('Refresh token not found', 401);
   }
   if (storedToken.revokedAt) {
+    // A token presented again shortly after rotation is almost always a
+    // benign race — lost response, app killed before persisting the new
+    // token, hot restart — not theft. If the family still has an active
+    // successor, re-serve it instead of revoking every session.
+    const withinGrace =
+      Date.now() - storedToken.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS;
+    if (withinGrace && storedToken.user.status === 'ACTIVE') {
+      const successor = await prisma.refreshToken.findFirst({
+        where: {
+          familyId: storedToken.familyId,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (successor) {
+        logger.warn(
+          `[Auth] Refresh token reused within ${REFRESH_REUSE_GRACE_MS}ms grace; re-serving active token for family ${storedToken.familyId}`
+        );
+        return {
+          accessToken: generateAccessToken(successor.userId),
+          refreshToken: successor.token,
+        };
+      }
+    }
     await prisma.refreshToken.updateMany({
       where: { familyId: storedToken.familyId, revokedAt: null },
       data: { revokedAt: new Date() },

@@ -34,7 +34,9 @@ export async function getTrackById(req: AuthRequest, res: Response, next: NextFu
 
 export async function listTracks(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { tracks, total } = await musicService.listTracks(req.query as any, req.userId);
+    // super_admin sees unstripped media URLs so the admin panel can preview PAID tracks.
+    const bypassLocks = (req.userRoles || []).includes('super_admin');
+    const { tracks, total } = await musicService.listTracks(req.query as any, req.userId, bypassLocks);
     paginatedResponse(res, tracks, total, (req.query as any).page, (req.query as any).limit, 'Tracks retrieved');
   } catch (error) { next(error); }
 }

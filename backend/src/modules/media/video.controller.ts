@@ -21,6 +21,23 @@ export async function completeVideoUpload(req: AuthRequest, res: Response, next:
   }
 }
 
+/** Local fallback: streams the raw request body to the uploads directory. */
+export async function uploadVideoLocal(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const contentType = (req.headers['content-type'] as string) || '';
+    const rawLength = req.headers['content-length'];
+    const result = await videoService.uploadVideoLocal(
+      req.params.id as string,
+      req,
+      contentType,
+      rawLength ? Number(rawLength) : undefined
+    );
+    successResponse(res, result, 'Video uploaded');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getVideoPlaybackUrl(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const result = await videoService.getVideoPlaybackUrl(

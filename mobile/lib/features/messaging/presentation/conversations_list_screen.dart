@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -232,9 +233,11 @@ class _NewMessageSheetState extends State<_NewMessageSheet> {
   final _searchController = TextEditingController();
   final _cubit = MessagingCubit(getIt());
   bool _opening = false;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _cubit.close();
     super.dispose();
@@ -325,8 +328,11 @@ class _NewMessageSheetState extends State<_NewMessageSheet> {
                     fillColor: AppTheme.creamBg,
                   ),
                   onChanged: (value) {
+                    _searchDebounce?.cancel();
                     if (value.length >= 2) {
-                      _cubit.searchUsers(value);
+                      _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                        if (mounted) _cubit.searchUsers(value);
+                      });
                     }
                   },
                 ),

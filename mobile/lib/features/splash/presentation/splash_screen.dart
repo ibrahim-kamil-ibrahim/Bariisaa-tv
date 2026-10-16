@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:naik_mobile/shared/styles.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/navigation/app_router.dart';
+import '../../auth/presentation/auth_cubit.dart';
+import '../../auth/domain/auth_state.dart';
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -29,6 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   bool _navigated = false;
   Timer? _navTimer;
+  late final DateTime _startedAt;
 
   @override
   void initState() {
@@ -77,14 +81,42 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ctrl.forward();
 
-    // Navigate once the entrance animation completes (branding still gets
-    // ~2.4s of screen time — no arbitrary 10s hold).
-    _navTimer = Timer(const Duration(milliseconds: 2400), () {
+    _startedAt = DateTime.now();
+
+    // Hard fallback in case the auth check never resolves.
+    _navTimer = Timer(const Duration(seconds: 4), () {
       if (!_navigated && mounted) {
         _navigated = true;
         context.go(AppRoutes.discovery);
       }
     });
+  }
+
+  void _maybeNavigate() {
+    if (_navigated || !mounted) return;
+    final elapsed = DateTime.now().difference(_startedAt).inMilliseconds;
+    if (elapsed < 900) {
+      // Auth resolved before the brand minimum elapsed — wait out the
+      // remaining time instead of dropping the navigation (the old code
+      // returned here and stalled the splash until the 4s fallback).
+      _navTimer?.cancel();
+      _navTimer = Timer(Duration(milliseconds: 900 - elapsed), _maybeNavigate);
+      return;
+    }
+    _navigated = true;
+    _navTimer?.cancel();
+    context.go(AppRoutes.discovery);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = context.read<AuthCubit>().state;
+    if (state is AuthGuest ||
+        state is AuthAuthenticated ||
+        state is AuthSessionExpired) {
+      _maybeNavigate();
+    }
   }
 
   @override
@@ -97,9 +129,17 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthGuest ||
+            state is AuthAuthenticated ||
+            state is AuthSessionExpired) {
+          _maybeNavigate();
+        }
+      },
+      child: PopScope(
+        canPop: false,
+        child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
@@ -173,6 +213,7 @@ class _SplashScreenState extends State<SplashScreen>
             },
           ),
         ),
+      ),
       ),
     );
   }

@@ -95,11 +95,36 @@ export async function deletePlan(id: string) {
   return prisma.subscriptionPlan.delete({ where: { id } });
 }
 
+export async function getManualPaymentInstructions(channel: 'BANK' | 'MOBILE_MONEY') {
+  // Read configured accounts from AppSetting; fall back to sensible defaults.
+  const setting = await prisma.appSetting
+    .findUnique({ where: { key: 'manual_payment_accounts' } })
+    .catch(() => null);
+  const configured = (setting?.value as any) || {};
+
+  if (channel === 'BANK') {
+    return {
+      type: 'BANK' as const,
+      bankName: configured.bankName || 'CBE Bank',
+      accountNumber: configured.bankAccountNumber || '1000123456789',
+      accountName: configured.bankAccountName || 'Bariisaa TV PLC',
+      swiftCode: configured.swiftCode || 'CBETAA',
+    };
+  }
+  return {
+    type: 'MOBILE_MONEY' as const,
+    provider: configured.mobileProvider || 'Telebirr',
+    phoneNumber: configured.mobileNumber || '0911000000',
+    accountName: configured.mobileAccountName || 'Bariisaa TV PLC',
+  };
+}
+
 export async function subscribe(
   userId: string,
   planId: string,
   couponCode: string | undefined,
-  gateway: 'TELEBIRR' | 'STRIPE' | 'CHAPA'
+  gateway: 'TELEBIRR' | 'STRIPE' | 'CHAPA' | 'MANUAL',
+  manualOptions?: { channel?: 'BANK' | 'MOBILE_MONEY'; accountName?: string; reference?: string }
 ) {
   const plan = await prisma.subscriptionPlan.findUnique({
     where: { id: planId },
@@ -289,6 +314,30 @@ export async function subscribe(
       where: { id: payment.id },
       data: { gatewayTransactionId: payment.id },
     });
+  } else if (gateway === 'MANUAL') {
+    // Manual payment (bank transfer / mobile money): store user's reference,
+    // return account instructions, and leave payment PENDING until an admin approves.
+    const channel = manualOptions?.channel || 'BANK';
+    const instructions = await getManualPaymentInstructions(channel);
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        metadata: {
+          channel,
+          accountName: manualOptions?.accountName || null,
+          reference: manualOptions?.reference || null,
+          submittedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    checkoutInfo = {
+      channel,
+      instructions,
+      requiresApproval: true,
+      submittedReference: manualOptions?.reference || null,
+    };
   }
 
   const startDate = new Date();

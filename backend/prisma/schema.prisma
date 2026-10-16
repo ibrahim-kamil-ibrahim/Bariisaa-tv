@@ -298,6 +298,7 @@ model Author {
 
   books       BookAuthor[]
   musicTracks MusicTrack[] @relation("MusicTrackArtist")
+  stories     Story[]      @relation("StoryAuthor")
 
   @@map("authors")
 }
@@ -595,6 +596,7 @@ enum PaymentGateway {
   TELEBIRR
   STRIPE
   CHAPA
+  MANUAL
 }
 
 enum PaymentStatus {
@@ -753,12 +755,15 @@ model Story {
   accessTier     AccessTier  @default(FREE)
   requiredPlanId String?
   requiredPlan   SubscriptionPlan? @relation(fields: [requiredPlanId], references: [id])
+  authorId       String?
+  author         Author?     @relation("StoryAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
   @@index([status])
   @@index([isFeatured])
   @@index([accessTier])
+  @@index([authorId])
   @@map("stories")
 }
 

@@ -1,7 +1,6 @@
 import app from './app';
 import prisma from './config/database';
 import { env } from './config/environment';
-import { initTelegramBot } from './services/telegram-bot';
 import logger from './utils/logger';
 
 process.on('unhandledRejection', (reason) => {
@@ -12,16 +11,6 @@ process.on('uncaughtException', (err) => {
   logger.error('UNCAUGHT EXCEPTION:', err);
   process.exit(1);
 });
-
-// Initialize Telegram bot if token is configured
-if (env.TELEGRAM_BOT_TOKEN) {
-  try {
-    initTelegramBot();
-    logger.info('Telegram bot initialized');
-  } catch (error) {
-    logger.error('Failed to initialize Telegram bot:', error);
-  }
-}
 
 const PORT = env.PORT;
 

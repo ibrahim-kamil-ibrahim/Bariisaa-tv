@@ -94,7 +94,7 @@ export async function getTrackById(id: string, userId?: string | null) {
   return annotated;
 }
 
-export async function listTracks(query: TrackQuery, userId?: string | null) {
+export async function listTracks(query: TrackQuery, userId?: string | null, bypassLocks = false) {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -115,7 +115,7 @@ export async function listTracks(query: TrackQuery, userId?: string | null) {
     }),
     prisma.musicTrack.count({ where }),
   ]);
-  return { tracks: await withMusicLocks(tracks, userId), total };
+  return { tracks: bypassLocks ? tracks : await withMusicLocks(tracks, userId), total };
 }
 
 export async function getFeaturedTracks(limit = 10, userId?: string | null) {

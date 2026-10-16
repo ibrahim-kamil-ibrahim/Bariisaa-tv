@@ -16,6 +16,13 @@ class AuthCubit extends Cubit<AuthState> {
     return null;
   }
 
+  /// Initializes auth check on the first frame (not on startup).
+  /// This defers the network call until the UI is visible.
+  void initAuthCheck() {
+    if (isClosed) return;
+    checkAuthStatus();
+  }
+
   Future<void> checkAuthStatus() async {
     emit(AuthLoading());
     try {

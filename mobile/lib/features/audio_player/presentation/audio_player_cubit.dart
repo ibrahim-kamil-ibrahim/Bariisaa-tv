@@ -21,7 +21,10 @@ class AudioPlayerCubit extends Cubit<AudioPlayerState> {
     _positionSub = _player.positionStream.listen((position) {
       if (_closed) return;
       if (state is AudioPlayerLoaded) {
+        // Throttle: only emit when the second changes (positionStream fires
+        // ~4x/sec — each emit rebuilds the whole player screen otherwise).
         final loaded = state as AudioPlayerLoaded;
+        if (loaded.position.inSeconds == position.inSeconds) return;
         emit(loaded.copyWith(position: position, isPlaying: _player.playing));
       }
     });

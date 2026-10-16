@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -13,14 +13,16 @@ import { Upload, X, FileVideo, RotateCcw } from 'lucide-react';
 import api from '../../services/api';
 
 /**
- * Direct-to-Cloudflare-R2 video upload.
+ * Video upload with two storage modes:
  *
- * Flow (video bytes NEVER go through the backend):
- *   1. POST /media/videos/upload-url   → presigned PUT URL + mediaId + objectKey
- *   2. PUT the file straight to R2 (XMLHttpRequest, with real upload progress)
+ *   1. POST /media/videos/upload-url → { mode: 'r2' | 'local', mediaId, uploadUrl }
+ *   2. PUT the bytes:
+ *        r2     → straight to the presigned R2 URL (bytes never hit our server)
+ *        local  → PUT /media/videos/:id/local-upload on our backend (fallback
+ *                 when R2 credentials are missing/placeholder)
  *   3. POST /media/videos/:id/complete → backend verifies the object exists
  *
- * Upload progress therefore represents Admin → R2 (not Admin → backend).
+ * The client flow is identical in both modes; only the PUT target differs.
  */
 
 interface UploadTask {
@@ -35,6 +37,8 @@ interface UploadTask {
 
 interface VideoUploadProps {
   onUploaded?: (video: { mediaId: string; name: string }) => void;
+  /** Reports whether an upload is in flight (parents can gate Save on it). */
+  onUploadingChange?: (uploading: boolean) => void;
   /**
    * Locks the upload to a piece of content (scope field is hidden).
    * When omitted, a manual "Book ID" field is shown.
@@ -56,7 +60,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
-export default function VideoUpload({ onUploaded, scope, visibility, hideScopeField }: VideoUploadProps) {
+export default function VideoUpload({ onUploaded, onUploadingChange, scope, visibility, hideScopeField }: VideoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [tasks, setTasks] = useState<UploadTask[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -66,7 +70,12 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
-  const addFiles = useCallback((files: FileList | File[]) => {
+  const uploading = tasks.some((t) => t.status === 'requesting' || t.status === 'uploading' || t.status === 'finalizing');
+  useEffect(() => {
+    onUploadingChange?.(uploading);
+  }, [uploading, onUploadingChange]);
+
+  const addFiles = (files: FileList | File[]) => {
     const list = Array.from(files);
     if (!list.length) return;
     const newTasks: UploadTask[] = list.map((file) => ({
@@ -76,8 +85,9 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
       status: 'pending',
     }));
     setTasks((prev) => [...prev, ...newTasks]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Picking a file IS the intent to upload — start immediately.
+    newTasks.forEach((t) => runTask(t));
+  };
 
   const requestUploadUrl = async (task: UploadTask) => {
     const scopeField: { bookId?: string; storyId?: string } = {};
@@ -92,7 +102,7 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
       ...scopeField,
       ...(visibility ? { visibility } : {}),
     });
-    return data.data as { mediaId: string; objectKey: string; uploadUrl: string; expiresIn: number };
+    return data.data as { mediaId: string; objectKey: string; uploadUrl: string | null; expiresIn: number | null; mode?: 'r2' | 'local' };
   };
 
   const putToR2 = (task: UploadTask, uploadUrl: string, contentType: string) =>
@@ -107,7 +117,38 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
       };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`R2 upload failed (HTTP ${xhr.status})`));
+        else reject(new Error(`Storage upload failed (HTTP ${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.onabort = () => reject(new Error('Upload cancelled'));
+      updateTask(task.id, { xhr });
+      xhr.send(task.file);
+    });
+
+  const putLocal = (task: UploadTask, mediaId: string, contentType: string) =>
+    new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', `${api.defaults.baseURL}/media/videos/${mediaId}/local-upload`);
+      xhr.setRequestHeader('Content-Type', contentType);
+      const token = localStorage.getItem('naik_admin_token');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          updateTask(task.id, { progress: Math.round((e.loaded / e.total) * 100) });
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else {
+          let message = `Upload failed (HTTP ${xhr.status})`;
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed?.message) message = parsed.message;
+          } catch {
+            /* non-JSON error body */
+          }
+          reject(new Error(message));
+        }
       };
       xhr.onerror = () => reject(new Error('Network error during upload'));
       xhr.onabort = () => reject(new Error('Upload cancelled'));
@@ -118,9 +159,14 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
   const runTask = async (task: UploadTask) => {
     try {
       updateTask(task.id, { status: 'requesting', error: undefined });
-      const { mediaId, uploadUrl } = await requestUploadUrl(task);
+      const { mediaId, uploadUrl, mode } = await requestUploadUrl(task);
       updateTask(task.id, { mediaId, status: 'uploading' });
-      await putToR2(task, uploadUrl, task.file.type || 'video/mp4');
+      const contentType = task.file.type || 'video/mp4';
+      if (mode === 'local') {
+        await putLocal(task, mediaId, contentType);
+      } else {
+        await putToR2(task, uploadUrl!, contentType);
+      }
       updateTask(task.id, { status: 'finalizing' });
       await api.post(`/media/videos/${mediaId}/complete`);
       updateTask(task.id, { status: 'done', progress: 100 });
@@ -200,7 +246,7 @@ export default function VideoUpload({ onUploaded, scope, visibility, hideScopeFi
           Drag & drop videos or <strong>browse</strong>
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          Uploads go directly to Cloudflare R2 — not through the server.
+          Pick a file and the upload starts automatically — wait for ✓ before saving.
         </Typography>
       </Box>
 

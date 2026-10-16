@@ -143,6 +143,10 @@ export default function MediaManagerPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const MAX_COVER_SIZE = 500 * 1024; // 500 KB
+  const MAX_THUMBNAIL_SIZE = 250 * 1024; // 250 KB
+  const MAX_AVATAR_SIZE = 300 * 1024; // 300 KB
+
   return (
     <FadeIn>
       <Box>
@@ -323,6 +327,9 @@ export default function MediaManagerPage() {
               >
                 <Upload size={28} color="disabled" />
                 <Typography variant="body2" color="text.secondary">Drop files or click to browse</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Max file size: 20 MB · Images: min 200×200px, max 1200×1200px
+                </Typography>
               </Box>
             )}
             {uploadFiles.length > 0 && (
@@ -332,6 +339,11 @@ export default function MediaManagerPage() {
                     {getIcon(f.type.split('/')[0] === 'image' ? 'image' : f.type.split('/')[0] === 'audio' ? 'audio' : f.type.split('/')[0] === 'video' ? 'video' : 'document', 16)}
                     <Typography variant="body2" noWrap sx={{ flex: 1 }}>{f.name}</Typography>
                     <Typography variant="caption" color="text.secondary">{formatSize(f.size)}</Typography>
+                    {f.type.startsWith('image/') && (
+                      <Typography variant="caption" color={f.size > MAX_COVER_SIZE ? "error" : "text.secondary"}>
+                        {f.size > MAX_COVER_SIZE ? 'Size too large' : 'Image file'}
+                      </Typography>
+                    )}
                     {!uploading && (
                       <IconButton size="small" onClick={() => setUploadFiles((prev) => prev.filter((_, j) => j !== i))}>
                         <Trash2 size={14} />

@@ -4,7 +4,7 @@ import { validate } from '../../middleware/validate';
 import { authenticate, optionalAuth } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { auditLog } from '../../middleware/auditLog';
-import { uploadImage, uploadAudio, uploadPdf, uploadMultiple } from '../../middleware/upload';
+import { uploadImage, uploadAudio, uploadPdf, uploadMultiple, validateUpload, imageValidations } from '../../middleware/upload';
 import { createBookSchema, updateBookSchema, bookQuerySchema } from './book.validation';
 import { getMediaSignedUrl } from './bookMediaProxy.controller';
 
@@ -20,7 +20,7 @@ router.get('/free', optionalAuth, bookController.getFreeBooks);
 router.get('/:id/related', optionalAuth, bookController.getRelatedBooks);
 router.get('/:id', optionalAuth, bookController.getBookById);
 router.get('/', optionalAuth, validate(bookQuerySchema, 'query'), bookController.listBooks);
-router.put('/:id/cover', authenticate, authorize('books:update'), uploadImage as any, bookController.uploadBookCover);
+router.put('/:id/cover', authenticate, authorize('books:update'), validateUpload(imageValidations.cover), uploadImage as any, bookController.uploadBookCover);
 router.put('/:id/thumbnail', authenticate, authorize('books:update'), uploadImage as any, bookController.uploadBookThumbnail);
 router.post('/:id/audio', authenticate, authorize('books:update'), uploadAudio as any, bookController.uploadBookAudio);
 router.delete('/:id/audio/:audioId', authenticate, authorize('books:update'), bookController.deleteBookAudio);

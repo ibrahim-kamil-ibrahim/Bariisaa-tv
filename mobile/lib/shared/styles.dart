@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 class AppStyles {
   static const String headingFamily = 'Baloo2';
   static const String bodyFamily = 'Nunito';
-  static const List<String> _fallback = ['NotoSansEthiopic', 'NotoColorEmoji'];
+  static const List<String> _fallback = ['NotoSansEthiopic'];
 
   static TextStyle baloo2({
     double? fontSize,

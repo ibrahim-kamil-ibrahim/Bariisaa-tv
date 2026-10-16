@@ -19,6 +19,7 @@ import '../../features/profile/presentation/devices_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/subscription/presentation/paywall_screen.dart';
 import '../../features/subscription/presentation/plans_screen.dart';
+import '../../features/subscription/presentation/payment_screen.dart';
 import '../../features/subscription/presentation/payment_success_screen.dart';
 import '../../features/subscription/presentation/payment_failure_screen.dart';
 import '../../features/subscription/presentation/payment_history_screen.dart';
@@ -60,6 +61,7 @@ class AppRoutes {
   static const String paymentSuccess = '/payment-success';
   static const String paymentFailure = '/payment-failure';
   static const String paymentHistory = '/payment-history';
+  static const String payment = '/payment';
   static const String paywall = '/paywall';
   static const String downloads = '/downloads';
   static const String bookDetail = '/book/:id';
@@ -101,10 +103,27 @@ GoRouter createRouter() {
         AppRoutes.conversations,
         AppRoutes.chat,
         AppRoutes.paymentHistory,
+        AppRoutes.bookDetail,
+        AppRoutes.storyDetail,
+        AppRoutes.musicPlayer,
+        AppRoutes.audioPlayer,
+        AppRoutes.ebookReader,
+        AppRoutes.videoPlayer,
+        AppRoutes.reviews,
+        AppRoutes.writeReview,
       ];
-      final isProtected = protectedPaths.any(
-        (p) => path == p || path.startsWith('$p/'),
-      );
+      bool matchesPattern(String path, String pattern) {
+        final pathSegs = path.split('/').where((s) => s.isNotEmpty).toList();
+        final patSegs = pattern.split('/').where((s) => s.isNotEmpty).toList();
+        if (pathSegs.length != patSegs.length) return false;
+        for (var i = 0; i < patSegs.length; i++) {
+          if (patSegs[i].startsWith(':')) continue;
+          if (pathSegs[i] != patSegs[i]) return false;
+        }
+        return true;
+      }
+
+      final isProtected = protectedPaths.any((p) => matchesPattern(path, p));
       if (!isProtected) return null;
       final authState = getIt<AuthCubit>().state;
       if (authState is AuthGuest || authState is AuthSessionExpired) {
@@ -259,6 +278,17 @@ GoRouter createRouter() {
         path: AppRoutes.paywall,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const PaywallScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.payment,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final plan = state.extra;
+          if (plan == null) {
+            return const Scaffold(body: Center(child: Text('Plan not found')));
+          }
+          return PaymentScreen(plan: plan as dynamic);
+        },
       ),
       GoRoute(
         path: AppRoutes.paymentSuccess,
