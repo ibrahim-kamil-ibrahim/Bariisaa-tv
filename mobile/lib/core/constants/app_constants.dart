@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart'
 class AppConstants {
   static const String appName = 'Bariisaa Tv';
 
-  static const String prodBaseUrl = 'https://api.bariisaa.com/api/v1';
+  /// Live backend (nginx + SSL on the VPS, proxied to the Docker API on :4000).
+  /// TODO: switch back to https://api.bariisaa.com/api/v1 once that domain's
+  /// DNS is pointed at the server (76.13.48.245) and SSL is issued.
+  static const String prodBaseUrl = 'https://bariisaa-tv.skoolific.com/api/v1';
   static const String devAndroidBaseUrl = 'http://10.0.2.2:3000/api/v1';
   static const String devDesktopBaseUrl = 'http://localhost:3000/api/v1';
 
