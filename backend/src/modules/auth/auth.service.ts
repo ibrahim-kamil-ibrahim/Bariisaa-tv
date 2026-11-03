@@ -27,12 +27,18 @@ function normalizePhone(val: string): string {
 }
 
 function generateAccessToken(userId: string): string {
+  if (!env.JWT_ACCESS_SECRET) {
+    throw new AppError('JWT access secret is not configured', 500);
+  }
   return jwt.sign({ userId }, env.JWT_ACCESS_SECRET, {
     expiresIn: env.JWT_ACCESS_EXPIRES_IN,
   } as jwt.SignOptions);
 }
 
 function generateRefreshToken(userId: string, familyId: string): string {
+  if (!env.JWT_REFRESH_SECRET) {
+    throw new AppError('JWT refresh secret is not configured', 500);
+  }
   return jwt.sign({ userId, familyId, jti: uuidv4() }, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
   } as jwt.SignOptions);
@@ -46,24 +52,40 @@ async function createTokenPair(userId: string, familyId?: string) {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId,
-      token: refreshTokenValue,
-      familyId: fid,
-      expiresAt,
-    },
-  });
+  try {
+    await prisma.refreshToken.create({
+      data: {
+        userId,
+        token: refreshTokenValue,
+        familyId: fid,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    // A DB write failure here must never surface as a bare "Internal
+    // server error" token-generation path on the client.
+    const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+    logger.error(`Failed to persist refresh token for userId ${userId}: ${detail}`);
+    throw new AppError('Could not create session. Please try again.', 500, false);
+  }
 
   return { accessToken, refreshToken: refreshTokenValue };
 }
 
 export async function getUserRoleNames(userId: string): Promise<string[]> {
-  const rows = await prisma.userRole.findMany({
-    where: { userId },
-    include: { role: { select: { name: true } } },
-  });
-  return rows.map((r) => r.role.name);
+  try {
+    const rows = await prisma.userRole.findMany({
+      where: { userId },
+      include: { role: { select: { name: true } } },
+    });
+    return rows.map((r) => r.role.name);
+  } catch (error) {
+    // Role lookup is best-effort; a failure must not break the login
+    // flow with a bare 500.
+    const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+    logger.error(`Failed to load roles for userId ${userId}: ${detail}`);
+    return [];
+  }
 }
 
 export async function signupWithEmail(email: string, password: string, name: string) {
@@ -200,7 +222,17 @@ export async function loginWithUsername(username: string, password: string, ip?:
   if (user.status === 'SUSPENDED') throw new AppError('Account is suspended', 403);
   if (!user.passwordHash) throw new AppError('This account uses social login. Please sign in with Google.', 400);
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  let valid: boolean;
+  try {
+    valid = await bcrypt.compare(password, user.passwordHash);
+  } catch (error) {
+    // bcrypt.compare throws an "invalid salt" error if the stored
+    // passwordHash is not a valid bcrypt hash (e.g. plaintext/legacy
+    // value). Surface a clean 401 instead of a bare 500.
+    const detail = error instanceof Error ? error.message : String(error);
+    logger.error(`Password hash verification failed: ${detail}`);
+    throw new AppError('Invalid credentials', 401);
+  }
   if (!valid) {
     recordFailedAttempt(lockoutKey, env.MAX_LOGIN_ATTEMPTS, env.LOGIN_LOCKOUT_MINUTES);
     throw new AppError('Invalid username or password', 401);
@@ -233,7 +265,23 @@ export async function login(identifier: string, password: string, isEmail: boole
 
   if (!isEmail) identifier = normalizePhone(identifier);
   const where = isEmail ? { email: identifier } : { phone: identifier };
-  const user = await prisma.user.findFirst({ where });
+  // Explicit select: the login response never needs User.username, so a
+  // database that predates that column can still authenticate (and unrelated
+  // future columns cannot break login).
+  const user = await prisma.user.findFirst({
+    where,
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      name: true,
+      avatarUrl: true,
+      emailVerified: true,
+      phoneVerified: true,
+      status: true,
+      passwordHash: true,
+    },
+  });
 
   if (!user) {
     recordFailedAttempt(lockoutKey, env.MAX_LOGIN_ATTEMPTS, env.LOGIN_LOCKOUT_MINUTES);
@@ -243,12 +291,21 @@ export async function login(identifier: string, password: string, isEmail: boole
   if (user.status === 'SUSPENDED') throw new AppError('Account is suspended', 403);
   if (!user.passwordHash) throw new AppError('This account uses social login. Please sign in with Google.', 400);
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  let valid: boolean;
+  try {
+    valid = await bcrypt.compare(password, user.passwordHash);
+  } catch (error) {
+    // bcrypt.compare throws an "invalid salt" error if the stored
+    // passwordHash is not a valid bcrypt hash (e.g. plaintext/legacy
+    // value). Surface a clean 401 instead of a bare 500.
+    const detail = error instanceof Error ? error.message : String(error);
+    logger.error(`Password hash verification failed: ${detail}`);
+    throw new AppError('Invalid credentials', 401);
+  }
   if (!valid) {
     recordFailedAttempt(lockoutKey, env.MAX_LOGIN_ATTEMPTS, env.LOGIN_LOCKOUT_MINUTES);
     throw new AppError('Invalid credentials', 401);
   }
-
   resetAttempts(lockoutKey);
   const tokens = await createTokenPair(user.id);
   const roles = await getUserRoleNames(user.id);

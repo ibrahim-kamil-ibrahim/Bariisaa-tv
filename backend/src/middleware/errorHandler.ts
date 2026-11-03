@@ -22,7 +22,24 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return errorResponse(res, err.message, err.statusCode);
   }
 
-  logger.error('Unexpected error:', err);
+  logger.error(`Unexpected error on ${_req.method} ${_req.originalUrl}:`, err);
+
+  // Prisma schema drift: the generated client knows about a table/column that
+  // the connected database does not have yet (pending migration). Without this
+  // branch every such request is an opaque "Internal server error" in prod.
+  if (err.name === 'PrismaClientKnownRequestError') {
+    const code = (err as Error & { code?: string }).code;
+    if (code === 'P2021' || code === 'P2022') {
+      logger.error(
+        `Database schema is out of date (${code}). Run "npx prisma migrate deploy" on this environment.`
+      );
+      return errorResponse(
+        res,
+        'Database schema is out of date. Please apply pending migrations and try again.',
+        500
+      );
+    }
+  }
 
   if (err.name === 'ZodError') {
     return errorResponse(res, 'Validation error', 422);
